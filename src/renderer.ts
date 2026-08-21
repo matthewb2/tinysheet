@@ -1,12 +1,64 @@
 import './styles.css'
+import { HyperFormula } from 'hyperformula'
 
 const ROWS = 30
 const COLS = 15
 
-const gridData: string[][] = Array.from({ length: ROWS }, () => Array(COLS).fill(''))
+const hf = HyperFormula.buildEmpty({
+  licenseKey: 'gpl-v3',
+  evaluateNullToZero: false,
+})
+
+const sheetName = hf.addSheet('Sheet1')
+const sheetId = hf.getSheetId(sheetName)!
 
 function getColumnLabel(index: number): string {
   return String.fromCharCode(65 + index)
+}
+
+function focusCell(row: number, col: number) {
+  const clampedRow = Math.max(0, Math.min(row, ROWS - 1))
+  const clampedCol = Math.max(0, Math.min(col, COLS - 1))
+  const table = document.getElementById('spreadsheet') as HTMLTableElement
+  if (!table) return
+  const input = table.querySelector(
+    `.cell-input[data-row="${clampedRow}"][data-col="${clampedCol}"]`
+  ) as HTMLInputElement | null
+  if (input) {
+    input.focus()
+    input.select()
+  }
+}
+
+function getCellValue(row: number, col: number): string | number | null {
+  try {
+    const val = hf.getCellValue({ sheet: sheetId, row, col })
+    if (val === null || val === undefined || val === '') return null
+    return val as string | number
+  } catch {
+    return null
+  }
+}
+
+function getCellRaw(row: number, col: number): string {
+  try {
+    if (hf.doesCellHaveFormula({ sheet: sheetId, row, col })) {
+      return hf.getCellFormula({ sheet: sheetId, row, col }) as string
+    }
+    const val = hf.getCellValue({ sheet: sheetId, row, col })
+    if (val === null || val === undefined || val === '') return ''
+    return String(val)
+  } catch {
+    return ''
+  }
+}
+
+function setCellValue(row: number, col: number, rawValue: string) {
+  if (rawValue === '') {
+    hf.setCellContents({ sheet: sheetId, row, col }, [['']])
+  } else {
+    hf.setCellContents({ sheet: sheetId, row, col }, [[rawValue]])
+  }
 }
 
 function renderGrid() {
@@ -47,13 +99,78 @@ function renderGrid() {
       input.className = 'cell-input'
       input.dataset.row = r.toString()
       input.dataset.col = c.toString()
-      input.value = gridData[r][c]
 
-      input.addEventListener('input', (e) => {
-        const target = e.target as HTMLInputElement
-        const row = parseInt(target.dataset.row || '0', 10)
-        const col = parseInt(target.dataset.col || '0', 10)
-        gridData[row][col] = target.value
+      const displayValue = getCellValue(r, c)
+      input.value = displayValue !== null ? String(displayValue) : ''
+
+      input.addEventListener('focus', () => {
+        input.value = getCellRaw(r, c)
+      })
+
+      input.addEventListener('blur', () => {
+        const raw = input.value
+        setCellValue(r, c, raw)
+        const calculated = getCellValue(r, c)
+        input.value = calculated !== null ? String(calculated) : ''
+      })
+
+      input.addEventListener('keydown', (e) => {
+        const r = parseInt(input.dataset.row || '0', 10)
+        const c = parseInt(input.dataset.col || '0', 10)
+
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          input.blur()
+          focusCell(r + 1, c)
+          return
+        }
+
+        if (e.key === 'Tab') {
+          e.preventDefault()
+          input.blur()
+          if (e.shiftKey) {
+            focusCell(r, c - 1)
+          } else {
+            focusCell(r, c + 1)
+          }
+          return
+        }
+
+        if (e.key === 'ArrowDown') {
+          const pos = input.selectionStart ?? input.value.length
+          if (pos === input.value.length || input.selectionStart === input.selectionEnd) {
+            e.preventDefault()
+            input.blur()
+            focusCell(r + 1, c)
+          }
+        }
+
+        if (e.key === 'ArrowUp') {
+          const pos = input.selectionStart ?? 0
+          if (pos === 0 || input.selectionStart === input.selectionEnd) {
+            e.preventDefault()
+            input.blur()
+            focusCell(r - 1, c)
+          }
+        }
+
+        if (e.key === 'ArrowRight') {
+          const pos = input.selectionStart ?? input.value.length
+          if (pos === input.value.length && input.selectionStart === input.selectionEnd) {
+            e.preventDefault()
+            input.blur()
+            focusCell(r, c + 1)
+          }
+        }
+
+        if (e.key === 'ArrowLeft') {
+          const pos = input.selectionStart ?? 0
+          if (pos === 0 && input.selectionStart === input.selectionEnd) {
+            e.preventDefault()
+            input.blur()
+            focusCell(r, c - 1)
+          }
+        }
       })
 
       td.appendChild(input)
@@ -64,22 +181,41 @@ function renderGrid() {
   table.appendChild(tbody)
 }
 
+function refreshDisplay() {
+  const table = document.getElementById('spreadsheet') as HTMLTableElement
+  if (!table) return
+  const inputs = table.querySelectorAll('.cell-input') as NodeListOf<HTMLInputElement>
+  inputs.forEach((input) => {
+    const r = parseInt(input.dataset.row || '0', 10)
+    const c = parseInt(input.dataset.col || '0', 10)
+    const val = getCellValue(r, c)
+    input.value = val !== null ? String(val) : ''
+  })
+}
+
 function parseAndLoad(content: string) {
-  const lines = content.split(/\r?\n/)
+  const lines = content.split(/\r?\n/).filter((l) => l.length > 0)
+  const data: string[][] = []
+  for (const line of lines) {
+    const delimiter = line.includes('\t') ? '\t' : ','
+    data.push(line.split(delimiter))
+  }
+
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
-      gridData[r][c] = ''
+      hf.setCellContents({ sheet: sheetId, row: r, col: c }, [['']])
     }
   }
-  for (let r = 0; r < Math.min(lines.length, ROWS); r++) {
-    const line = lines[r]
-    const delimiter = line.includes('\t') ? '\t' : ','
-    const cells = line.split(delimiter)
-    for (let c = 0; c < Math.min(cells.length, COLS); c++) {
-      gridData[r][c] = cells[c]
+
+  for (let r = 0; r < Math.min(data.length, ROWS); r++) {
+    for (let c = 0; c < Math.min(data[r].length, COLS); c++) {
+      if (data[r][c] !== '') {
+        hf.setCellContents({ sheet: sheetId, row: r, col: c }, [[data[r][c]]])
+      }
     }
   }
-  renderGrid()
+
+  refreshDisplay()
 }
 
 document.addEventListener('DOMContentLoaded', () => {
