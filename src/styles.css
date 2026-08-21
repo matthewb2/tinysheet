@@ -1,0 +1,76 @@
+body, html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #f3f3f3;
+}
+
+.tinysheet-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.toolbar {
+  background: #ffffff;
+  padding: 10px 20px;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.toolbar h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #107c41;
+}
+
+.grid-wrapper {
+  flex: 1;
+  overflow: auto;
+  background: #fff;
+}
+
+.spreadsheet-table {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.spreadsheet-table th, .spreadsheet-table td {
+  border: 1px solid #e0e0e0;
+  padding: 0;
+  height: 25px;
+  text-align: center;
+}
+
+.spreadsheet-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.row-header {
+  background-color: #f8f9fa;
+  font-size: 12px;
+  width: 40px;
+}
+
+.cell-input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  outline: none;
+  text-align: left;
+  padding: 0 4px;
+  box-sizing: border-box;
+  font-size: 13px;
+  background: transparent;
+}
+
+.cell-input:focus {
+  background: #eef6ff;
+  outline: 2px solid #107c41;
+}

@@ -1,0 +1,42 @@
+{
+  "name": "tinysheet",
+  "version": "1.0.0",
+  "description": "A lightweight spreadsheet built with TypeScript and Electron",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:renderer": "webpack --config webpack.renderer.config.js --mode=production",
+    "build:main": "tsc --ignoreConfig electron/main.ts --outDir electron --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --moduleResolution bundler && tsc --ignoreConfig src/preload.ts --outDir src --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --moduleResolution bundler",
+    "build": "npm run build:main && npm run build:renderer",
+    "dev": "npm run build:main && webpack --config webpack.renderer.config.js --mode=development --watch",
+    "dist": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win"
+  },
+  "build": {
+    "appId": "com.tinysheet.app",
+    "productName": "tinysheet",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist/electron"
+    },
+    "win": {
+      "target": "nsis"
+    }
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0",
+    "css-loader": "^6.8.1",
+    "electron": "^26.4.0",
+    "electron-builder": "^24.6.0",
+    "html-webpack-plugin": "^5.5.3",
+    "style-loader": "^3.3.3",
+    "ts-loader": "^9.5.0",
+    "typescript": "~6.0.3",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4"
+  }
+}
