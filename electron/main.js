@@ -41,6 +41,7 @@ function createWindow() {
     mainWindow = new electron_1.BrowserWindow({
         width: 1024,
         height: 700,
+        icon: path.join(__dirname, '../assets/icon.png'),
         webPreferences: {
             preload: path.join(__dirname, '../src/preload.js'),
             contextIsolation: true,

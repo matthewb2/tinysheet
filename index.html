@@ -6,10 +6,12 @@
 </head>
 <body>
   <div class="tinysheet-container">
-    <header class="toolbar">
-      <h2>tinysheet</h2>
-      <span id="status">Ready (Vanilla TS)</span>
-    </header>
+    <div class="formula-bar">
+      <div class="cell-address-box" id="cell-address">A1</div>
+      <div class="formula-bar-sep"></div>
+      <div class="formula-bar-label">f(x)</div>
+      <input type="text" class="formula-bar-input" id="formula-bar-input" />
+    </div>
     <div class="grid-wrapper">
       <table id="spreadsheet" class="spreadsheet-table"></table>
     </div>
