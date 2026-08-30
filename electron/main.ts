@@ -3,6 +3,55 @@ import * as path from 'path'
 import * as fs from 'fs'
 
 let mainWindow: BrowserWindow | null = null
+let lastRendererMtime = 0
+
+function watchRendererReload() {
+  const target = path.join(__dirname, '../dist/renderer.js')
+  setInterval(() => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    try {
+      const m = fs.statSync(target).mtimeMs
+      if (lastRendererMtime === 0) {
+        lastRendererMtime = m
+      } else if (m !== lastRendererMtime) {
+        lastRendererMtime = m
+        mainWindow.webContents.reload()
+      }
+    } catch {
+      // ignore
+    }
+  }, 1000)
+}
+
+interface Settings {
+  lastFolder: string | null
+}
+
+const DEFAULT_SETTINGS: Settings = { lastFolder: null }
+
+function getSettingsPath(): string {
+  return path.join(app.getPath('userData'), 'settings.json')
+}
+
+function loadSettings(): Settings {
+  try {
+    const data = fs.readFileSync(getSettingsPath(), 'utf-8')
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(data) }
+  } catch {
+    return { ...DEFAULT_SETTINGS }
+  }
+}
+
+function saveSettings(settings: Settings) {
+  try {
+    fs.mkdirSync(path.dirname(getSettingsPath()), { recursive: true })
+    fs.writeFileSync(getSettingsPath(), JSON.stringify(settings, null, 2), 'utf-8')
+  } catch (err) {
+    console.error('설정 저장 실패:', err)
+  }
+}
+
+let settings: Settings = DEFAULT_SETTINGS
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -17,6 +66,7 @@ function createWindow() {
   })
 
   mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+  watchRendererReload()
 
   const menuTemplate: Electron.MenuItemConstructorOptions[] = [
     {
@@ -46,6 +96,7 @@ async function handleOpen() {
 
   const result = await dialog.showOpenDialog(mainWindow, {
     title: '파일 열기',
+    defaultPath: settings.lastFolder || undefined,
     filters: [
       { name: '텍스트 파일', extensions: ['csv', 'tsv', 'txt'] },
       { name: '모든 파일', extensions: ['*'] },
@@ -56,11 +107,20 @@ async function handleOpen() {
   if (result.canceled || result.filePaths.length === 0) return
 
   const filePath = result.filePaths[0]
+  console.log('[debug] file chosen:', filePath)
+  settings.lastFolder = path.dirname(filePath)
+  saveSettings(settings)
+
   const content = fs.readFileSync(filePath, 'utf-8')
+  console.log('[debug] file content length:', content.length)
   mainWindow.webContents.send('file-opened', content)
+  console.log('[debug] file-opened event sent')
 }
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  settings = loadSettings()
+  createWindow()
+})
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

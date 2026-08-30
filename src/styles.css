@@ -126,19 +126,6 @@ body, html {
   background-color: #cce4ff !important;
 }
 
-td.sel-top {
-  border-top: 2px solid #1a73e8 !important;
-}
-td.sel-bottom {
-  border-bottom: 2px solid #1a73e8 !important;
-}
-td.sel-left {
-  border-left: 2px solid #1a73e8 !important;
-}
-td.sel-right {
-  border-right: 2px solid #1a73e8 !important;
-}
-
 .context-menu {
   position: fixed;
   z-index: 1000;
@@ -203,3 +190,5 @@ td.sel-right {
 .context-menu-item:hover > .context-submenu {
   display: block;
 }
+
+

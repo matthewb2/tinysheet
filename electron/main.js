@@ -37,6 +37,50 @@ const electron_1 = require("electron");
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
 let mainWindow = null;
+let lastRendererMtime = 0;
+function watchRendererReload() {
+    const target = path.join(__dirname, '../dist/renderer.js');
+    setInterval(() => {
+        if (!mainWindow || mainWindow.isDestroyed())
+            return;
+        try {
+            const m = fs.statSync(target).mtimeMs;
+            if (lastRendererMtime === 0) {
+                lastRendererMtime = m;
+            }
+            else if (m !== lastRendererMtime) {
+                lastRendererMtime = m;
+                mainWindow.webContents.reload();
+            }
+        }
+        catch {
+            // ignore
+        }
+    }, 1000);
+}
+const DEFAULT_SETTINGS = { lastFolder: null };
+function getSettingsPath() {
+    return path.join(electron_1.app.getPath('userData'), 'settings.json');
+}
+function loadSettings() {
+    try {
+        const data = fs.readFileSync(getSettingsPath(), 'utf-8');
+        return { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
+    }
+    catch {
+        return { ...DEFAULT_SETTINGS };
+    }
+}
+function saveSettings(settings) {
+    try {
+        fs.mkdirSync(path.dirname(getSettingsPath()), { recursive: true });
+        fs.writeFileSync(getSettingsPath(), JSON.stringify(settings, null, 2), 'utf-8');
+    }
+    catch (err) {
+        console.error('설정 저장 실패:', err);
+    }
+}
+let settings = DEFAULT_SETTINGS;
 function createWindow() {
     mainWindow = new electron_1.BrowserWindow({
         width: 1024,
@@ -49,6 +93,7 @@ function createWindow() {
         },
     });
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    watchRendererReload();
     const menuTemplate = [
         {
             label: '파일(&F)',
@@ -75,6 +120,7 @@ async function handleOpen() {
         return;
     const result = await electron_1.dialog.showOpenDialog(mainWindow, {
         title: '파일 열기',
+        defaultPath: settings.lastFolder || undefined,
         filters: [
             { name: '텍스트 파일', extensions: ['csv', 'tsv', 'txt'] },
             { name: '모든 파일', extensions: ['*'] },
@@ -84,10 +130,18 @@ async function handleOpen() {
     if (result.canceled || result.filePaths.length === 0)
         return;
     const filePath = result.filePaths[0];
+    console.log('[debug] file chosen:', filePath);
+    settings.lastFolder = path.dirname(filePath);
+    saveSettings(settings);
     const content = fs.readFileSync(filePath, 'utf-8');
+    console.log('[debug] file content length:', content.length);
     mainWindow.webContents.send('file-opened', content);
+    console.log('[debug] file-opened event sent');
 }
-electron_1.app.whenReady().then(createWindow);
+electron_1.app.whenReady().then(() => {
+    settings = loadSettings();
+    createWindow();
+});
 electron_1.app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
         electron_1.app.quit();

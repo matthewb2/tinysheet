@@ -8,7 +8,9 @@
     "build:renderer": "webpack --config webpack.renderer.config.js --mode=production",
     "build:main": "tsc --ignoreConfig electron/main.ts --outDir electron --target es2020 --module commonjs && tsc --ignoreConfig src/preload.ts --outDir src --target es2020 --module commonjs",
     "build": "npm run build:main && npm run build:renderer",
-    "dev": "npm run build:main && webpack --config webpack.renderer.config.js --mode=development --watch",
+    "dev:main": "tsc --ignoreConfig electron/main.ts --outDir electron --target es2020 --module commonjs --watch",
+    "dev:renderer": "webpack --config webpack.renderer.config.js --mode=development --watch",
+    "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\" \"electron .\"",
     "dist": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win"
   },
   "build": {
@@ -17,7 +19,8 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "node_modules/**/*",
+      "src/preload.js",
+      "assets/**/*",
       "package.json"
     ],
     "directories": {
@@ -26,12 +29,10 @@
     "win": {
       "target": "nsis",
       "icon": "assets/icon.ico"
-    },
-    "nsis": {
-      "icon": "assets/icon.ico"
     }
   },
   "devDependencies": {
+    "concurrently": "^8.2.2",
     "cross-env": "^10.1.0",
     "css-loader": "^6.8.1",
     "electron": "^26.4.0",

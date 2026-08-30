@@ -4,6 +4,10 @@ import { HyperFormula } from 'hyperformula'
 const ROWS = 30
 const COLS = 15
 
+function dbg(msg: string) {
+  console.log('[debug]', msg)
+}
+
 const hf = HyperFormula.buildEmpty({
   licenseKey: 'gpl-v3',
   evaluateNullToZero: false,
@@ -84,12 +88,18 @@ function applySelection() {
   const table = document.getElementById('spreadsheet') as HTMLTableElement
   if (!table) return
 
-  table.querySelectorAll('.cell-selected').forEach((el) => el.classList.remove('cell-selected'))
-  table.querySelectorAll('.sel-top, .sel-bottom, .sel-left, .sel-right').forEach((el) => {
-    el.classList.remove('sel-top', 'sel-bottom', 'sel-left', 'sel-right')
+  let clearedBorders = 0
+  table.querySelectorAll('.cell-selected').forEach((el) => {
+    el.classList.remove('cell-selected')
+    const td = (el as HTMLElement).parentElement as HTMLElement
+    if (td && td.style.boxShadow) {
+      td.style.boxShadow = ''
+      clearedBorders++
+    }
   })
 
   const sel = normalizeSelection()
+  dbg(`[applySelection] clearBorders=${clearedBorders} anchor=${selectionAnchor?.row ?? '-'},${selectionAnchor?.col ?? '-'} end=${selectionEnd?.row ?? '-'},${selectionEnd?.col ?? '-'} isDragging=${isDragging}`)
   if (!sel) return
 
   for (let r = sel.r1; r <= sel.r2; r++) {
@@ -100,10 +110,24 @@ function applySelection() {
       if (input) {
         input.classList.add('cell-selected')
         const td = input.parentElement as HTMLElement
-        if (r === sel.r1) td.classList.add('sel-top')
-        if (r === sel.r2) td.classList.add('sel-bottom')
-        if (c === sel.c1) td.classList.add('sel-left')
-        if (c === sel.c2) td.classList.add('sel-right')
+        const shadows: string[] = []
+        if (r === sel.r1) {
+          shadows.push('inset 0 2px 0 #1a73e8')
+        } else {
+          shadows.push('inset 0 1px 0 #ababab')
+        }
+        if (r === sel.r2) {
+          shadows.push('inset 0 -2px 0 #1a73e8')
+        }
+        if (c === sel.c1) {
+          shadows.push('inset 2px 0 0 #1a73e8')
+        } else {
+          shadows.push('inset 1px 0 0 #ababab')
+        }
+        if (c === sel.c2) {
+          shadows.push('inset -2px 0 0 #1a73e8')
+        }
+        td.style.boxShadow = shadows.join(', ')
       }
     }
   }
@@ -354,6 +378,11 @@ function renderGrid() {
 
       input.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return
+        const active = document.activeElement as HTMLElement | null
+        dbg(`[mousedown] ${r},${c} active=${active?.className ?? 'none'} isDragging=${isDragging}`)
+        if (active && active !== input && active.classList.contains('cell-input')) {
+          active.blur()
+        }
         e.preventDefault()
         isDragging = true
         selectionAnchor = { row: r, col: c }
@@ -366,11 +395,16 @@ function renderGrid() {
         if (e.button !== 0) return
         if (!isDragging) return
         const anchor = selectionAnchor
-        const end = selectionEnd
-        const isClick = anchor && end && anchor.row === end.row && anchor.col === end.col
         isDragging = false
-        if (isClick) {
-          input.focus()
+        if (anchor) {
+          const tbl = document.getElementById('spreadsheet') as HTMLTableElement
+          const target = tbl?.querySelector(
+            `.cell-input[data-row="${anchor.row}"][data-col="${anchor.col}"]`
+          ) as HTMLInputElement | null
+          if (target) {
+            dbg(`[mouseup] ${r},${c} focus-anchor=${anchor.row},${anchor.col} targetFocused=${document.activeElement === target}`)
+            target.focus()
+          }
         }
       })
 
@@ -384,7 +418,10 @@ function renderGrid() {
       input.addEventListener('focus', () => {
         input.value = getCellRaw(r, c)
         updateFormulaBar(r, c)
-        if (!isDragging) {
+        const sel = normalizeSelection()
+        const inRange = sel && r >= sel.r1 && r <= sel.r2 && c >= sel.c1 && c <= sel.c2
+        dbg(`[focus] ${r},${c} inRange=${!!inRange} isDragging=${isDragging} anchor=${selectionAnchor?.row ?? '-'},${selectionAnchor?.col ?? '-'}`)
+        if (!isDragging && !inRange) {
           selectionAnchor = { row: r, col: c }
           selectionEnd = { row: r, col: c }
           applySelection()
@@ -398,10 +435,13 @@ function renderGrid() {
         const calculated = getCellValue(r, c)
         input.value = calculated !== null ? String(calculated) : ''
         if (!isDragging) {
+          dbg(`[blur] ${r},${c} clearing selection`)
           selectionAnchor = null
           selectionEnd = null
           applySelection()
           applyHeaderHighlights()
+        } else {
+          dbg(`[blur] ${r},${c} isDragging -> selection kept`)
         }
       })
 
@@ -485,28 +525,42 @@ function refreshDisplay() {
 }
 
 function parseAndLoad(content: string) {
+  dbg('parseAndLoad: content length = ' + content.length)
   const lines = content.split(/\r?\n/).filter((l) => l.length > 0)
+  dbg('parseAndLoad: parsed ' + lines.length + ' lines')
   const data: string[][] = []
   for (const line of lines) {
     const delimiter = line.includes('\t') ? '\t' : ','
     data.push(line.split(delimiter))
   }
 
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      hf.setCellContents({ sheet: sheetId, row: r, col: c }, [['']])
-    }
-  }
-
-  for (let r = 0; r < Math.min(data.length, ROWS); r++) {
-    for (let c = 0; c < Math.min(data[r].length, COLS); c++) {
-      if (data[r][c] !== '') {
-        hf.setCellContents({ sheet: sheetId, row: r, col: c }, [[data[r][c]]])
+  try {
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        hf.setCellContents({ sheet: sheetId, row: r, col: c }, [['']])
       }
     }
+
+    for (let r = 0; r < Math.min(data.length, ROWS); r++) {
+      for (let c = 0; c < Math.min(data[r].length, COLS); c++) {
+        if (data[r][c] !== '') {
+          try {
+            hf.setCellContents({ sheet: sheetId, row: r, col: c }, [[data[r][c]]])
+          } catch (err) {
+            dbg('parseAndLoad: cell [' + r + ',' + c + '] value='
+              + JSON.stringify(data[r][c]) + ' ERROR - ' + (err as Error).message)
+          }
+        }
+      }
+    }
+  } catch (err) {
+    dbg('parseAndLoad: ERROR - ' + (err as Error).message)
+    return
   }
 
+  dbg('parseAndLoad: loaded ' + Math.min(data.length, ROWS) + ' rows')
   refreshDisplay()
+  dbg('parseAndLoad: refreshDisplay done')
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -518,6 +572,14 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('mouseup', () => {
     if (isDragging) {
       isDragging = false
+      const anchor = selectionAnchor
+      if (anchor) {
+        const table = document.getElementById('spreadsheet') as HTMLTableElement
+        const target = table?.querySelector(
+          `.cell-input[data-row="${anchor.row}"][data-col="${anchor.col}"]`
+        ) as HTMLInputElement | null
+        if (target && document.activeElement !== target) target.focus()
+      }
     }
   })
 
@@ -585,9 +647,14 @@ document.addEventListener('DOMContentLoaded', () => {
     })
   }
 
+  dbg('electronAPI.something')
   if (window.electronAPI?.onFileOpen) {
+    dbg('onFileOpen registered')
     window.electronAPI.onFileOpen((content: string) => {
+      dbg('onFileOpen received content, length=' + content.length)
       parseAndLoad(content)
     })
+  } else {
+    dbg('window.electronAPI.onFileOpen NOT available')
   }
 })
