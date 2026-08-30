@@ -15,6 +15,9 @@ export const hf = HyperFormula.buildEmpty({
 const sheetName = hf.addSheet('Sheet1')
 export const sheetId = hf.getSheetId(sheetName)!
 
+const rawTexts = new Map<string, string>()
+const cellKey = (row: number, col: number) => row + ',' + col
+
 export function getCellValue(row: number, col: number): string | number | null {
   try {
     const val = hf.getCellValue({ sheet: sheetId, row, col })
@@ -40,8 +43,49 @@ export function getCellRaw(row: number, col: number): string {
 
 export function setCellValue(row: number, col: number, rawValue: string) {
   if (rawValue === '') {
+    rawTexts.delete(cellKey(row, col))
     hf.setCellContents({ sheet: sheetId, row, col }, [['']])
   } else {
+    rawTexts.set(cellKey(row, col), rawValue)
     hf.setCellContents({ sheet: sheetId, row, col }, [[rawValue]])
+  }
+}
+
+export function getRecordedRaw(row: number, col: number): string | null {
+  const raw = rawTexts.get(cellKey(row, col))
+  return raw === undefined ? null : raw
+}
+
+export function shiftRows(fromRow: number, delta: number) {
+  const rows = Array.from(rawTexts.keys())
+    .map((key) => parseInt(key.split(',')[0], 10))
+    .filter((r) => r >= fromRow)
+    .sort((a, b) => (delta > 0 ? b - a : a - b))
+  for (const r of rows) {
+    const cols = Array.from(rawTexts.keys())
+      .filter((key) => parseInt(key.split(',')[0], 10) === r)
+      .map((key) => parseInt(key.split(',')[1], 10))
+    for (const c of cols) {
+      const value = rawTexts.get(cellKey(r, c))!
+      rawTexts.delete(cellKey(r, c))
+      rawTexts.set(cellKey(r + delta, c), value)
+    }
+  }
+}
+
+export function shiftCols(fromCol: number, delta: number) {
+  const cols = Array.from(rawTexts.keys())
+    .map((key) => parseInt(key.split(',')[1], 10))
+    .filter((c) => c >= fromCol)
+    .sort((a, b) => (delta > 0 ? b - a : a - b))
+  for (const c of cols) {
+    const rows = Array.from(rawTexts.keys())
+      .filter((key) => parseInt(key.split(',')[1], 10) === c)
+      .map((key) => parseInt(key.split(',')[0], 10))
+    for (const r of rows) {
+      const value = rawTexts.get(cellKey(r, c))!
+      rawTexts.delete(cellKey(r, c))
+      rawTexts.set(cellKey(r, c + delta), value)
+    }
   }
 }

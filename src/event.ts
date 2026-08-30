@@ -1,4 +1,4 @@
-import { ROWS, COLS, hf, sheetId, dbg, getCellRaw, getCellValue, setCellValue } from './init'
+import { ROWS, COLS, hf, sheetId, dbg, getCellRaw, getCellValue, setCellValue, getRecordedRaw, shiftRows, shiftCols } from './init'
 import {
   type CellPos,
   focusCell,
@@ -60,24 +60,31 @@ function hideAllContextMenus() {
 }
 
 function executeMenuAction(action: string) {
+  const active = document.activeElement as HTMLInputElement | null
+  if (active && active.classList.contains('cell-input')) active.blur()
+
   switch (action) {
     case 'insertRowAbove':
       hf.addRows(sheetId, [contextMenuRow, 1])
+      shiftRows(contextMenuRow, 1)
       renderGrid()
       attachAllCellEvents()
       break
     case 'insertRowBelow':
       hf.addRows(sheetId, [contextMenuRow + 1, 1])
+      shiftRows(contextMenuRow + 1, 1)
       renderGrid()
       attachAllCellEvents()
       break
     case 'insertColBefore':
       hf.addColumns(sheetId, [contextMenuCol, 1])
+      shiftCols(contextMenuCol, 1)
       renderGrid()
       attachAllCellEvents()
       break
     case 'insertColAfter':
       hf.addColumns(sheetId, [contextMenuCol + 1, 1])
+      shiftCols(contextMenuCol + 1, 1)
       renderGrid()
       attachAllCellEvents()
       break
@@ -85,6 +92,7 @@ function executeMenuAction(action: string) {
       const { height } = hf.getSheetDimensions(sheetId)
       if (height > 1) {
         hf.removeRows(sheetId, [contextMenuRow, 1])
+        shiftRows(contextMenuRow, -1)
         renderGrid()
         attachAllCellEvents()
       }
@@ -94,6 +102,7 @@ function executeMenuAction(action: string) {
       const { width } = hf.getSheetDimensions(sheetId)
       if (width > 1) {
         hf.removeColumns(sheetId, [contextMenuCol, 1])
+        shiftCols(contextMenuCol, -1)
         renderGrid()
         attachAllCellEvents()
       }
@@ -245,7 +254,15 @@ export function attachAllCellEvents() {
 
     input.addEventListener('blur', () => {
       const raw = input.value
-      setCellValue(r, c, raw)
+      const hasFormula = hf.doesCellHaveFormula({ sheet: sheetId, row: r, col: c })
+      const currentValue = getCellValue(r, c)
+      const currentShown = hasFormula ? getCellRaw(r, c) : currentValue === null ? '' : String(currentValue)
+      const unchanged = raw === currentShown
+      if (unchanged) {
+        dbg(`[blur] ${r},${c} unchanged -> skip commit`)
+      } else {
+        setCellValue(r, c, raw)
+      }
       const calculated = getCellValue(r, c)
       input.value = calculated !== null ? String(calculated) : ''
       if (!getSelection().isDragging) {
@@ -329,7 +346,7 @@ function loadContent(content: string) {
   try {
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
-        hf.setCellContents({ sheet: sheetId, row: r, col: c }, [['']])
+        setCellValue(r, c, '')
       }
     }
 
@@ -337,7 +354,7 @@ function loadContent(content: string) {
       for (let c = 0; c < Math.min(data[r].length, COLS); c++) {
         if (data[r][c] !== '') {
           try {
-            hf.setCellContents({ sheet: sheetId, row: r, col: c }, [[data[r][c]]])
+            setCellValue(r, c, data[r][c])
           } catch (err) {
             dbg('loadContent: cell [' + r + ',' + c + '] value='
               + JSON.stringify(data[r][c]) + ' ERROR - ' + (err as Error).message)
@@ -455,7 +472,7 @@ export function serializeCsv(): string {
   let lastCol = -1
   for (let r = 0; r < maxRows; r++) {
     for (let c = 0; c < maxCols; c++) {
-      if (getCellValue(r, c) !== null) {
+      if (getCellValue(r, c) !== null || getRecordedRaw(r, c) !== null) {
         if (r > lastRow) lastRow = r
         if (c > lastCol) lastCol = c
       }
@@ -468,8 +485,18 @@ export function serializeCsv(): string {
   for (let r = 0; r <= lastRow; r++) {
     const cells: string[] = []
     for (let c = 0; c <= lastCol; c++) {
-      const val = getCellValue(r, c)
-      cells.push(val === null ? '' : escapeCsvField(String(val)))
+      if (hf.doesCellHaveFormula({ sheet: sheetId, row: r, col: c })) {
+        const val = getCellValue(r, c)
+        cells.push(val === null ? '' : escapeCsvField(String(val)))
+      } else {
+        const recorded = getRecordedRaw(r, c)
+        if (recorded !== null) {
+          cells.push(escapeCsvField(recorded))
+        } else {
+          const val = getCellValue(r, c)
+          cells.push(val === null ? '' : escapeCsvField(String(val)))
+        }
+      }
     }
     lines.push(cells.join(','))
   }
