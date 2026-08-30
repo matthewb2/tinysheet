@@ -5,4 +5,8 @@ electron_1.contextBridge.exposeInMainWorld('electronAPI', {
     onFileOpen: (callback) => {
         electron_1.ipcRenderer.on('file-opened', (_event, content) => callback(content));
     },
+    onSaveRequested: (callback) => {
+        electron_1.ipcRenderer.on('save-requested', () => callback());
+    },
+    saveCsv: (content) => electron_1.ipcRenderer.invoke('save-csv', content),
 });

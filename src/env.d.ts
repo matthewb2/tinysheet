@@ -5,6 +5,8 @@ declare module '*.css' {
 
 interface ElectronAPI {
   onFileOpen: (callback: (content: string) => void) => void
+  onSaveRequested: (callback: () => void) => void
+  saveCsv: (content: string) => Promise<boolean>
 }
 
 interface Window {

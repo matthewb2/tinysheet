@@ -6,6 +6,7 @@ import {
   setupDocumentEvents,
   setupFormulaBar,
   registerFileOpen,
+  registerSaveHandler,
 } from './event'
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -15,4 +16,5 @@ document.addEventListener('DOMContentLoaded', () => {
   setupDocumentEvents()
   setupFormulaBar()
   registerFileOpen()
+  registerSaveHandler()
 })

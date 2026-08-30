@@ -439,6 +439,57 @@ export function setupFormulaBar() {
   })
 }
 
+function escapeCsvField(value: string): string {
+  if (/[",\r\n]/.test(value)) {
+    return '"' + value.replace(/"/g, '""') + '"'
+  }
+  return value
+}
+
+export function serializeCsv(): string {
+  const dims = hf.getSheetDimensions(sheetId)
+  const maxRows = Math.min(dims.height, ROWS)
+  const maxCols = Math.min(dims.width, COLS)
+
+  let lastRow = -1
+  let lastCol = -1
+  for (let r = 0; r < maxRows; r++) {
+    for (let c = 0; c < maxCols; c++) {
+      if (getCellValue(r, c) !== null) {
+        if (r > lastRow) lastRow = r
+        if (c > lastCol) lastCol = c
+      }
+    }
+  }
+
+  if (lastRow < 0) return ''
+
+  const lines: string[] = []
+  for (let r = 0; r <= lastRow; r++) {
+    const cells: string[] = []
+    for (let c = 0; c <= lastCol; c++) {
+      const val = getCellValue(r, c)
+      cells.push(val === null ? '' : escapeCsvField(String(val)))
+    }
+    lines.push(cells.join(','))
+  }
+  return lines.join('\r\n') + '\r\n'
+}
+
+export function registerSaveHandler() {
+  dbg('registerSaveHandler')
+  if (window.electronAPI?.onSaveRequested) {
+    dbg('onSaveRequested registered')
+    window.electronAPI.onSaveRequested(() => {
+      const csv = serializeCsv()
+      dbg('serialized csv length=' + csv.length)
+      window.electronAPI?.saveCsv(csv)
+    })
+  } else {
+    dbg('window.electronAPI.onSaveRequested NOT available')
+  }
+}
+
 export function registerFileOpen() {
   dbg('electronAPI.something')
   if (window.electronAPI?.onFileOpen) {

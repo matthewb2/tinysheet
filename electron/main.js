@@ -103,6 +103,11 @@ function createWindow() {
                     accelerator: 'CmdOrCtrl+O',
                     click: handleOpen,
                 },
+                {
+                    label: '저장(&S)',
+                    accelerator: 'CmdOrCtrl+S',
+                    click: handleSave,
+                },
                 { type: 'separator' },
                 {
                     label: '종료(&X)',
@@ -138,8 +143,42 @@ async function handleOpen() {
     mainWindow.webContents.send('file-opened', content);
     console.log('[debug] file-opened event sent');
 }
+async function handleSave() {
+    if (!mainWindow)
+        return;
+    mainWindow.webContents.send('save-requested');
+    console.log('[debug] save-requested sent');
+}
+async function handleSaveCsv(_event, content) {
+    if (!mainWindow)
+        return false;
+    const defaultPath = path.join(settings.lastFolder || electron_1.app.getPath('documents'), 'sheet.csv');
+    const result = await electron_1.dialog.showSaveDialog(mainWindow, {
+        title: 'CSV 저장',
+        defaultPath,
+        filters: [
+            { name: 'CSV 파일', extensions: ['csv'] },
+            { name: '모든 파일', extensions: ['*'] },
+        ],
+    });
+    if (result.canceled || !result.filePath)
+        return false;
+    try {
+        fs.writeFileSync(result.filePath, content, 'utf-8');
+    }
+    catch (err) {
+        console.error('CSV 저장 실패:', err);
+        return false;
+    }
+    settings.lastFolder = path.dirname(result.filePath);
+    saveSettings(settings);
+    mainWindow.setTitle('tinysheet - ' + path.basename(result.filePath));
+    console.log('[debug] csv saved:', result.filePath);
+    return true;
+}
 electron_1.app.whenReady().then(() => {
     settings = loadSettings();
+    electron_1.ipcMain.handle('save-csv', handleSaveCsv);
     createWindow();
 });
 electron_1.app.on('window-all-closed', () => {

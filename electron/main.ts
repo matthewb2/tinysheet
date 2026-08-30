@@ -70,12 +70,17 @@ function createWindow() {
 
   const menuTemplate: Electron.MenuItemConstructorOptions[] = [
     {
-      label: '파일(&F)',
+      label: '파일(&F)',      
       submenu: [
         {
           label: '열기(&O)',
           accelerator: 'CmdOrCtrl+O',
           click: handleOpen,
+        },
+        {
+          label: '저장(&S)',
+          accelerator: 'CmdOrCtrl+S',
+          click: handleSave,
         },
         { type: 'separator' },
         {
@@ -117,8 +122,44 @@ async function handleOpen() {
   console.log('[debug] file-opened event sent')
 }
 
+async function handleSave() {
+  if (!mainWindow) return
+  mainWindow.webContents.send('save-requested')
+  console.log('[debug] save-requested sent')
+}
+
+async function handleSaveCsv(_event: Electron.IpcMainInvokeEvent, content: string): Promise<boolean> {
+  if (!mainWindow) return false
+
+  const defaultPath = path.join(settings.lastFolder || app.getPath('documents'), 'sheet.csv')
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'CSV 저장',
+    defaultPath,
+    filters: [
+      { name: 'CSV 파일', extensions: ['csv'] },
+      { name: '모든 파일', extensions: ['*'] },
+    ],
+  })
+
+  if (result.canceled || !result.filePath) return false
+
+  try {
+    fs.writeFileSync(result.filePath, content, 'utf-8')
+  } catch (err) {
+    console.error('CSV 저장 실패:', err)
+    return false
+  }
+
+  settings.lastFolder = path.dirname(result.filePath)
+  saveSettings(settings)
+  mainWindow.setTitle('tinysheet - ' + path.basename(result.filePath))
+  console.log('[debug] csv saved:', result.filePath)
+  return true
+}
+
 app.whenReady().then(() => {
   settings = loadSettings()
+  ipcMain.handle('save-csv', handleSaveCsv)
   createWindow()
 })
 
