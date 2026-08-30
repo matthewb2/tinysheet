@@ -81,6 +81,12 @@ function saveSettings(settings) {
     }
 }
 let settings = DEFAULT_SETTINGS;
+let currentFilePath = null;
+function setWindowTitle() {
+    if (mainWindow) {
+        mainWindow.setTitle(currentFilePath ? 'tinysheet - ' + path.basename(currentFilePath) : 'tinysheet');
+    }
+}
 function createWindow() {
     mainWindow = new electron_1.BrowserWindow({
         width: 1024,
@@ -107,6 +113,11 @@ function createWindow() {
                     label: '저장(&S)',
                     accelerator: 'CmdOrCtrl+S',
                     click: handleSave,
+                },
+                {
+                    label: '다른 이름으로 저장(&A)',
+                    accelerator: 'CmdOrCtrl+Shift+S',
+                    click: handleSaveAs,
                 },
                 { type: 'separator' },
                 {
@@ -138,6 +149,8 @@ async function handleOpen() {
     console.log('[debug] file chosen:', filePath);
     settings.lastFolder = path.dirname(filePath);
     saveSettings(settings);
+    currentFilePath = filePath;
+    setWindowTitle();
     const content = fs.readFileSync(filePath, 'utf-8');
     console.log('[debug] file content length:', content.length);
     mainWindow.webContents.send('file-opened', content);
@@ -149,10 +162,27 @@ async function handleSave() {
     mainWindow.webContents.send('save-requested');
     console.log('[debug] save-requested sent');
 }
-async function handleSaveCsv(_event, content) {
+async function handleSaveAs() {
+    if (!mainWindow)
+        return;
+    mainWindow.webContents.send('save-requested', true);
+    console.log('[debug] save-as-requested sent');
+}
+async function handleSaveCsv(_event, content, isSaveAs) {
     if (!mainWindow)
         return false;
-    const defaultPath = path.join(settings.lastFolder || electron_1.app.getPath('documents'), 'sheet.csv');
+    if (!isSaveAs && currentFilePath) {
+        try {
+            fs.writeFileSync(currentFilePath, content, 'utf-8');
+            console.log('[debug] csv saved (direct):', currentFilePath);
+            return true;
+        }
+        catch (err) {
+            console.error('직접 저장 실패 - 대화상자로 전환:', err);
+        }
+    }
+    const defaultPath = currentFilePath ||
+        path.join(settings.lastFolder || electron_1.app.getPath('documents'), 'sheet.csv');
     const result = await electron_1.dialog.showSaveDialog(mainWindow, {
         title: 'CSV 저장',
         defaultPath,
@@ -170,9 +200,10 @@ async function handleSaveCsv(_event, content) {
         console.error('CSV 저장 실패:', err);
         return false;
     }
+    currentFilePath = result.filePath;
     settings.lastFolder = path.dirname(result.filePath);
     saveSettings(settings);
-    mainWindow.setTitle('tinysheet - ' + path.basename(result.filePath));
+    setWindowTitle();
     console.log('[debug] csv saved:', result.filePath);
     return true;
 }

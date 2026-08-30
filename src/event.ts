@@ -480,10 +480,10 @@ export function registerSaveHandler() {
   dbg('registerSaveHandler')
   if (window.electronAPI?.onSaveRequested) {
     dbg('onSaveRequested registered')
-    window.electronAPI.onSaveRequested(() => {
+    window.electronAPI.onSaveRequested((isSaveAs) => {
       const csv = serializeCsv()
-      dbg('serialized csv length=' + csv.length)
-      window.electronAPI?.saveCsv(csv)
+      dbg('serialized csv length=' + csv.length + ' isSaveAs=' + isSaveAs)
+      window.electronAPI?.saveCsv(csv, isSaveAs)
     })
   } else {
     dbg('window.electronAPI.onSaveRequested NOT available')

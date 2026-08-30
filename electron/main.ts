@@ -53,6 +53,14 @@ function saveSettings(settings: Settings) {
 
 let settings: Settings = DEFAULT_SETTINGS
 
+let currentFilePath: string | null = null
+
+function setWindowTitle() {
+  if (mainWindow) {
+    mainWindow.setTitle(currentFilePath ? 'tinysheet - ' + path.basename(currentFilePath) : 'tinysheet')
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1024,
@@ -81,6 +89,11 @@ function createWindow() {
           label: '저장(&S)',
           accelerator: 'CmdOrCtrl+S',
           click: handleSave,
+        },
+        {
+          label: '다른 이름으로 저장(&A)',
+          accelerator: 'CmdOrCtrl+Shift+S',
+          click: handleSaveAs,
         },
         { type: 'separator' },
         {
@@ -115,6 +128,8 @@ async function handleOpen() {
   console.log('[debug] file chosen:', filePath)
   settings.lastFolder = path.dirname(filePath)
   saveSettings(settings)
+  currentFilePath = filePath
+  setWindowTitle()
 
   const content = fs.readFileSync(filePath, 'utf-8')
   console.log('[debug] file content length:', content.length)
@@ -128,10 +143,32 @@ async function handleSave() {
   console.log('[debug] save-requested sent')
 }
 
-async function handleSaveCsv(_event: Electron.IpcMainInvokeEvent, content: string): Promise<boolean> {
+async function handleSaveAs() {
+  if (!mainWindow) return
+  mainWindow.webContents.send('save-requested', true)
+  console.log('[debug] save-as-requested sent')
+}
+
+async function handleSaveCsv(
+  _event: Electron.IpcMainInvokeEvent,
+  content: string,
+  isSaveAs: boolean
+): Promise<boolean> {
   if (!mainWindow) return false
 
-  const defaultPath = path.join(settings.lastFolder || app.getPath('documents'), 'sheet.csv')
+  if (!isSaveAs && currentFilePath) {
+    try {
+      fs.writeFileSync(currentFilePath, content, 'utf-8')
+      console.log('[debug] csv saved (direct):', currentFilePath)
+      return true
+    } catch (err) {
+      console.error('직접 저장 실패 - 대화상자로 전환:', err)
+    }
+  }
+
+  const defaultPath =
+    currentFilePath ||
+    path.join(settings.lastFolder || app.getPath('documents'), 'sheet.csv')
   const result = await dialog.showSaveDialog(mainWindow, {
     title: 'CSV 저장',
     defaultPath,
@@ -150,9 +187,10 @@ async function handleSaveCsv(_event: Electron.IpcMainInvokeEvent, content: strin
     return false
   }
 
+  currentFilePath = result.filePath
   settings.lastFolder = path.dirname(result.filePath)
   saveSettings(settings)
-  mainWindow.setTitle('tinysheet - ' + path.basename(result.filePath))
+  setWindowTitle()
   console.log('[debug] csv saved:', result.filePath)
   return true
 }
