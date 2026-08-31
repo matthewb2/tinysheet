@@ -9,7 +9,7 @@
     "build:main": "tsc --ignoreConfig electron/main.ts --outDir electron --target es2020 --module commonjs && tsc --ignoreConfig src/preload.ts --outDir src --target es2020 --module commonjs",
     "build": "npm run build:main && npm run build:renderer",
     "dev:main": "tsc --ignoreConfig electron/main.ts --outDir electron --target es2020 --module commonjs --watch",
-    "dev:renderer": "webpack --config webpack.renderer.config.js --mode=development --watch",
+    "dev:renderer": "webpack serve --config webpack.renderer.config.js --mode=development",
     "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\" \"electron .\"",
     "dist": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win"
   },
@@ -42,7 +42,8 @@
     "ts-loader": "^9.5.0",
     "typescript": "~6.0.3",
     "webpack": "^5.88.2",
-    "webpack-cli": "^5.1.4"
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^6.0.0"
   },
   "dependencies": {
     "hyperformula": "^3.4.0"

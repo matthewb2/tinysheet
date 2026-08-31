@@ -17,4 +17,5 @@ document.addEventListener('DOMContentLoaded', () => {
   setupFormulaBar()
   registerFileOpen()
   registerSaveHandler()
+  document.querySelector<HTMLElement>('.formula-bar')!.style.display = 'flex'
 })

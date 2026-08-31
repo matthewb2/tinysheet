@@ -13,7 +13,7 @@ body, html {
 }
 
 .formula-bar {
-  display: flex;
+  display: none;
   align-items: center;
   background: #f8f9fa;
   border-bottom: 1px solid #ddd;
@@ -23,7 +23,7 @@ body, html {
 }
 
 .cell-address-box {
-  width: 80px;
+  width: 130px;
   height: 100%;
   display: flex;
   align-items: center;
@@ -81,7 +81,7 @@ body, html {
 .spreadsheet-table th, .spreadsheet-table td {
   border: 1px solid #e0e0e0;
   padding: 0;
-  height: 25px;
+  height: 20px;
   text-align: center;
 }
 
@@ -119,7 +119,7 @@ body, html {
 
 .cell-input:focus {
   background: #eef6ff;
-  outline: 2px solid #107c41;
+  outline: 1px solid #f8f9fa;
 }
 
 .cell-selected {

@@ -36,28 +36,29 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const electron_1 = require("electron");
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
-let mainWindow = null;
-let lastRendererMtime = 0;
-function watchRendererReload() {
-    const target = path.join(__dirname, '../dist/renderer.js');
-    setInterval(() => {
-        if (!mainWindow || mainWindow.isDestroyed())
-            return;
-        try {
-            const m = fs.statSync(target).mtimeMs;
-            if (lastRendererMtime === 0) {
-                lastRendererMtime = m;
-            }
-            else if (m !== lastRendererMtime) {
-                lastRendererMtime = m;
-                mainWindow.webContents.reload();
-            }
-        }
-        catch {
-            // ignore
-        }
-    }, 1000);
+const http = __importStar(require("http"));
+const DEV_SERVER_URL = 'http://localhost:8080';
+function waitForDevServer(url, timeoutMs = 30000) {
+    return new Promise((resolve) => {
+        const deadline = Date.now() + timeoutMs;
+        const attempt = () => {
+            const req = http.get(url, (res) => {
+                res.resume();
+                resolve();
+            });
+            req.on('error', () => {
+                if (Date.now() >= deadline) {
+                    resolve();
+                }
+                else {
+                    setTimeout(attempt, 500);
+                }
+            });
+        };
+        attempt();
+    });
 }
+let mainWindow = null;
 const DEFAULT_SETTINGS = { lastFolder: null };
 function getSettingsPath() {
     return path.join(electron_1.app.getPath('userData'), 'settings.json');
@@ -98,8 +99,19 @@ function createWindow() {
             nodeIntegration: false,
         },
     });
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
-    watchRendererReload();
+    // 개발 모드 여부 확인 후 웹팩 개발 서버 또는 빌드 파일 로드
+    const isDev = process.env.NODE_ENV === 'development' || !electron_1.app.isPackaged;
+    if (isDev) {
+        waitForDevServer(DEV_SERVER_URL).then(() => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.loadURL(DEV_SERVER_URL);
+            }
+        });
+        mainWindow.webContents.openDevTools(); // 개발자 도구 자동 오픈
+    }
+    else {
+        mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    }
     const menuTemplate = [
         {
             label: '파일(&F)',

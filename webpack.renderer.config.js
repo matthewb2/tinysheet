@@ -27,6 +27,7 @@ module.exports = {
   plugins: [
     new HtmlWebpackPlugin({
       template: './index.html',
+      inject: true, // 번들된 JS 파일을 HTML에 자동으로 주입
     }),
   ],
 }

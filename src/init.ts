@@ -15,6 +15,23 @@ export const hf = HyperFormula.buildEmpty({
 const sheetName = hf.addSheet('Sheet1')
 export const sheetId = hf.getSheetId(sheetName)!
 
+const probe = HyperFormula.buildEmpty({
+  licenseKey: 'gpl-v3',
+  evaluateNullToZero: false,
+})
+const probeSheetId = probe.getSheetId(probe.addSheet('Probe'))!
+
+// HyperFormula가 두 자리 연도 형식(yy.mm.dd 등)을 날짜로 해석해
+// 시리얼 숫자로 바꾸는 것을 방지하기 위해, 날짜로 해석되는 입력은 문자열로 저장한다.
+function isParsedAsDate(value: string): boolean {
+  try {
+    probe.setCellContents({ sheet: probeSheetId, row: 0, col: 0 }, [[value]])
+    return probe.getCellValueDetailedType({ sheet: probeSheetId, row: 0, col: 0 }) === 'NUMBER_DATE'
+  } catch {
+    return false
+  }
+}
+
 const rawTexts = new Map<string, string>()
 const cellKey = (row: number, col: number) => row + ',' + col
 
@@ -47,7 +64,7 @@ export function setCellValue(row: number, col: number, rawValue: string) {
     hf.setCellContents({ sheet: sheetId, row, col }, [['']])
   } else {
     rawTexts.set(cellKey(row, col), rawValue)
-    hf.setCellContents({ sheet: sheetId, row, col }, [[rawValue]])
+    hf.setCellContents({ sheet: sheetId, row, col }, [[isParsedAsDate(rawValue) ? `'${rawValue}` : rawValue]])
   }
 }
 

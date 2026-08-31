@@ -33,6 +33,16 @@ export function getColumnLabel(index: number): string {
   return String.fromCharCode(65 + index)
 }
 
+export function updateAddressBox() {
+  const el = document.getElementById('cell-address')
+  if (!el) return
+  const sel = normalizeSelection()
+  if (!sel) return
+  const start = getColumnLabel(sel.c1) + (sel.r1 + 1)
+  const end = getColumnLabel(sel.c2) + (sel.r2 + 1)
+  el.textContent = start === end ? start : start + ':' + end
+}
+
 export function focusCell(row: number, col: number) {
   const clampedRow = Math.max(0, Math.min(row, ROWS - 1))
   const clampedCol = Math.max(0, Math.min(col, COLS - 1))
@@ -68,6 +78,7 @@ export function applySelection() {
       ` end=${selectionEnd?.row ?? '-'},${selectionEnd?.col ?? '-'}` +
       ` isDragging=${isDragging}`
   )
+  updateAddressBox()
   if (!sel) return
 
   for (let r = sel.r1; r <= sel.r2; r++) {

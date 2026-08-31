@@ -204,6 +204,11 @@ export function attachAllCellEvents() {
       if (e.button !== 0) return
       const active = document.activeElement as HTMLElement | null
       dbg(`[mousedown] ${r},${c} active=${active?.className ?? 'none'} isDragging=${getSelection().isDragging}`)
+      // 이미 포커스된(편집 중인) 셀이면 기본 동작을 유지해
+      // 텍스트 드래그 선택/캐럿 이동이 동작하도록 한다.
+      if (active === input) {
+        return
+      }
       if (active && active !== input && active.classList.contains('cell-input')) {
         active.blur()
       }
@@ -217,18 +222,7 @@ export function attachAllCellEvents() {
     input.addEventListener('mouseup', (e) => {
       if (e.button !== 0) return
       if (!getSelection().isDragging) return
-      const anchor = getSelection().anchor
       setDragging(false)
-      if (anchor) {
-        const tbl = document.getElementById('spreadsheet') as HTMLTableElement
-        const target = tbl?.querySelector(
-          `.cell-input[data-row="${anchor.row}"][data-col="${anchor.col}"]`
-        ) as HTMLInputElement | null
-        if (target) {
-          dbg(`[mouseup] ${r},${c} focus-anchor=${anchor.row},${anchor.col} targetFocused=${document.activeElement === target}`)
-          target.focus()
-        }
-      }
     })
 
     input.addEventListener('mouseenter', () => {
@@ -378,19 +372,14 @@ export function setupDocumentEvents() {
   document.addEventListener('mouseup', () => {
     if (getSelection().isDragging) {
       setDragging(false)
-      const anchor = getSelection().anchor
-      if (anchor) {
-        const table = document.getElementById('spreadsheet') as HTMLTableElement
-        const target = table?.querySelector(
-          `.cell-input[data-row="${anchor.row}"][data-col="${anchor.col}"]`
-        ) as HTMLInputElement | null
-        if (target && document.activeElement !== target) target.focus()
-      }
     }
   })
 }
 
 export function setupFormulaBar() {
+  const formulaLabel = document.querySelector<HTMLElement>('.formula-bar-label')
+  if (formulaLabel) formulaLabel.textContent = 'f(x)'
+
   const formulaInput = document.getElementById('formula-bar-input') as HTMLInputElement | null
   if (!formulaInput) return
 
