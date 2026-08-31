@@ -85,7 +85,7 @@ let settings = DEFAULT_SETTINGS;
 let currentFilePath = null;
 function setWindowTitle() {
     if (mainWindow) {
-        mainWindow.setTitle(currentFilePath ? 'tinysheet - ' + path.basename(currentFilePath) : 'tinysheet');
+        mainWindow.setTitle(currentFilePath ? '타이니시트 - ' + path.basename(currentFilePath) : '타이니시트');
     }
 }
 function createWindow() {
@@ -99,6 +99,12 @@ function createWindow() {
             nodeIntegration: false,
         },
     });
+    // HTML <title>이 윈도우 타이틀을 덮어쓰지 않도록 막고, 항상 앱 타이틀을 유지한다.
+    mainWindow.on('page-title-updated', (event) => {
+        event.preventDefault();
+        setWindowTitle();
+    });
+    setWindowTitle();
     // 개발 모드 여부 확인 후 웹팩 개발 서버 또는 빌드 파일 로드
     const isDev = process.env.NODE_ENV === 'development' || !electron_1.app.isPackaged;
     if (isDev) {
