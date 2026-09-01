@@ -79,7 +79,6 @@ body, html {
 }
 
 .spreadsheet-table th, .spreadsheet-table td {
-  border: 1px solid #e0e0e0;
   padding: 0;
   height: 20px;
   text-align: center;
@@ -118,8 +117,7 @@ body, html {
 }
 
 .cell-input:focus {
-  background: #eef6ff;
-  outline: 1px solid #f8f9fa;
+  background: #eef6ff;  
 }
 
 .cell-selected {

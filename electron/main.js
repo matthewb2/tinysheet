@@ -110,10 +110,14 @@ function createWindow() {
     if (isDev) {
         waitForDevServer(DEV_SERVER_URL).then(() => {
             if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.once('did-finish-load', () => {
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.openDevTools(); // 본문 시트 로드 완료 후 개발자 도구 오픈
+                    }
+                });
                 mainWindow.loadURL(DEV_SERVER_URL);
             }
         });
-        mainWindow.webContents.openDevTools(); // 개발자 도구 자동 오픈
     }
     else {
         mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));

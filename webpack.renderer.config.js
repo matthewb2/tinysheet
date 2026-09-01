@@ -4,6 +4,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin')
 module.exports = {
   target: 'web',
   entry: './src/main.ts',
+  devtool: 'eval-cheap-module-source-map', // 소스맵 최적화 및 외부 라이브러리 소스맵 오류
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'renderer.js',
