@@ -70,6 +70,16 @@ body, html {
   flex: 1;
   overflow: auto;
   background: #fff;
+  position: relative;
+}
+
+.selection-overlay {
+  position: absolute;
+  pointer-events: none;
+  z-index: 50;
+  border: 2px solid #1a73e8;
+  box-sizing: border-box;
+  display: none;
 }
 
 .spreadsheet-table {
@@ -132,8 +142,9 @@ body, html {
   background: #eef6ff;  
 }
 
+/* 드래그 했을 때 나오는 셀의 투명한 배경색 */
 .cell-selected {
-  background-color: #cce4ff !important;
+  background-color: rgba(204, 228, 255, 0.35) !important;
 }
 
 .context-menu {

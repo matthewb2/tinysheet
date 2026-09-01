@@ -56,33 +56,30 @@ export function focusCell(row: number, col: number) {
     input.select()
   }
 }
-
+/* 
+ * 선택을 했을 때 셀의 디자인 변경 
+ */
 export function applySelection() {
   const table = document.getElementById('spreadsheet') as HTMLTableElement
   if (!table) return
 
-  let clearedBorders = 0
   table.querySelectorAll('.cell-selected').forEach((el) => {
     el.classList.remove('cell-selected')
-    const td = (el as HTMLElement).parentElement as HTMLElement
-    if (td) {
-      td.style.borderTop = ''
-      td.style.borderBottom = ''
-      td.style.borderLeft = ''
-      td.style.borderRight = ''
-      clearedBorders++
-    }
   })
 
   const sel = normalizeSelection()
   dbg(
-    `[applySelection] clearBorders=${clearedBorders}` +
-      ` anchor=${selectionAnchor?.row ?? '-'},${selectionAnchor?.col ?? '-'}` +
+    `[applySelection] anchor=${selectionAnchor?.row ?? '-'},${selectionAnchor?.col ?? '-'}` +
       ` end=${selectionEnd?.row ?? '-'},${selectionEnd?.col ?? '-'}` +
       ` isDragging=${isDragging}`
   )
   updateAddressBox()
-  if (!sel) return
+
+  const overlay = document.querySelector('.selection-overlay') as HTMLElement | null
+  if (!sel) {
+    if (overlay) overlay.style.display = 'none'
+    return
+  }
 
   for (let r = sel.r1; r <= sel.r2; r++) {
     for (let c = sel.c1; c <= sel.c2; c++) {
@@ -90,14 +87,28 @@ export function applySelection() {
         `.cell-input[data-row="${r}"][data-col="${c}"]`
       ) as HTMLElement | null
       if (input) {
-        input.classList.add('cell-selected')
         const td = input.parentElement as HTMLElement
-        td.style.borderTop = r === sel.r1 ? '2px solid #1a73e8' : '1px solid #ababab'
-        td.style.borderBottom = r === sel.r2 ? '2px solid #1a73e8' : '1px solid #ababab'
-        td.style.borderLeft = c === sel.c1 ? '2px solid #1a73e8' : '1px solid #ababab'
-        td.style.borderRight = c === sel.c2 ? '2px solid #1a73e8' : '1px solid #ababab'
+        if (td) td.classList.add('cell-selected')
       }
     }
+  }
+
+  if (!overlay) return
+
+  const firstTd = table.querySelector(
+    `.cell-input[data-row="${sel.r1}"][data-col="${sel.c1}"]`
+  )?.parentElement as HTMLElement | null
+  const lastTd = table.querySelector(
+    `.cell-input[data-row="${sel.r2}"][data-col="${sel.c2}"]`
+  )?.parentElement as HTMLElement | null
+  if (firstTd && lastTd) {
+    overlay.style.left = firstTd.offsetLeft + 'px'
+    overlay.style.top = firstTd.offsetTop + 'px'
+    overlay.style.width =
+      lastTd.offsetLeft + lastTd.offsetWidth - firstTd.offsetLeft + 'px'
+    overlay.style.height =
+      lastTd.offsetTop + lastTd.offsetHeight - firstTd.offsetTop + 'px'
+    overlay.style.display = 'block'
   }
 }
 

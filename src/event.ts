@@ -233,6 +233,23 @@ export function attachAllCellEvents() {
       applyHeaderHighlights()
     })
 
+    input.addEventListener('dblclick', (e) => {
+      if (e.button !== 0) return
+      if (document.activeElement === input) return
+      setSelection({ row: r, col: c }, { row: r, col: c })
+      applySelection()
+      applyHeaderHighlights()
+      input.focus()
+      input.value = getCellRaw(r, c)
+      const rect = input.getBoundingClientRect()
+      const ratio = rect.width > 0 ? (e.clientX - rect.left) / rect.width : 0
+      const index = Math.max(
+        0,
+        Math.min(input.value.length, Math.round(ratio * input.value.length))
+      )
+      input.setSelectionRange(index, index)
+    })
+
     input.addEventListener('focus', () => {
       input.value = getCellRaw(r, c)
       updateFormulaBar(r, c)
