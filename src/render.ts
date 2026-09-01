@@ -65,8 +65,11 @@ export function applySelection() {
   table.querySelectorAll('.cell-selected').forEach((el) => {
     el.classList.remove('cell-selected')
     const td = (el as HTMLElement).parentElement as HTMLElement
-    if (td && td.style.boxShadow) {
-      td.style.boxShadow = ''
+    if (td) {
+      td.style.borderTop = ''
+      td.style.borderBottom = ''
+      td.style.borderLeft = ''
+      td.style.borderRight = ''
       clearedBorders++
     }
   })
@@ -89,24 +92,10 @@ export function applySelection() {
       if (input) {
         input.classList.add('cell-selected')
         const td = input.parentElement as HTMLElement
-        const shadows: string[] = []
-        if (r === sel.r1) {
-          shadows.push('inset 0 2px 0 #1a73e8')
-        } else {
-          shadows.push('inset 0 1px 0 #ababab')
-        }
-        if (r === sel.r2) {
-          shadows.push('inset 0 -2px 0 #1a73e8')
-        }
-        if (c === sel.c1) {
-          shadows.push('inset 2px 0 0 #1a73e8')
-        } else {
-          shadows.push('inset 1px 0 0 #ababab')
-        }
-        if (c === sel.c2) {
-          shadows.push('inset -2px 0 0 #1a73e8')
-        }
-        td.style.boxShadow = shadows.join(', ')
+        td.style.borderTop = r === sel.r1 ? '2px solid #1a73e8' : '1px solid #ababab'
+        td.style.borderBottom = r === sel.r2 ? '2px solid #1a73e8' : '1px solid #ababab'
+        td.style.borderLeft = c === sel.c1 ? '2px solid #1a73e8' : '1px solid #ababab'
+        td.style.borderRight = c === sel.c2 ? '2px solid #1a73e8' : '1px solid #ababab'
       }
     }
   }
