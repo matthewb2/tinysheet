@@ -5,7 +5,14 @@ A very tiny spreadsheet like Excel built with typescript and electron
 HyperFomula
 https://github.com/handsontable/hyperformula
 
-# build and install
+# build
 npm run build
-npx electron . or npm start
+
+# make .exe
+npm run dist
+
+# run
+npm run dev
+
+# or excute tinysheet.exe in dist 
 

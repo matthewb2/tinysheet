@@ -186,11 +186,13 @@ function createWindow() {
                     }
                 });
                 mainWindow.loadURL(DEV_SERVER_URL);
+                process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
             }
         });
     }
     else {
         mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+        process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
     }
     rebuildApplicationMenu();
 }

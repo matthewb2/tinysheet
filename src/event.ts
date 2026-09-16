@@ -352,6 +352,7 @@ export function attachAllCellEvents() {
           e.preventDefault()
           input.blur()
           focusCell(r, c + 1)
+          console.log("right key pressed");
         }
       }
 
