@@ -58,7 +58,8 @@ function waitForDevServer(url, timeoutMs = 30000) {
         attempt();
     });
 }
-let mainWindow = null;
+let mainWindow = undefined;
+let aboutWin = undefined;
 const DEFAULT_SETTINGS = { lastFolder: null, recentFiles: [] };
 const MAX_RECENT_FILES = 5;
 function getSettingsPath() {
@@ -143,6 +144,17 @@ function buildMenuTemplate() {
                 },
             ],
         },
+        {
+            label: '도움말(&H)',
+            submenu: [
+                {
+                    label: '정보(&I)',
+                    click: () => {
+                        showAboutDialog();
+                    }
+                }
+            ]
+        }
     ];
 }
 function rebuildApplicationMenu() {
@@ -175,6 +187,9 @@ function createWindow() {
         setWindowTitle();
     });
     setWindowTitle();
+    mainWindow.on('closed', () => {
+        mainWindow = undefined;
+    });
     // 개발 모드 여부 확인 후 웹팩 개발 서버 또는 빌드 파일 로드
     const isDev = process.env.NODE_ENV === 'development' || !electron_1.app.isPackaged;
     if (isDev) {
@@ -220,6 +235,26 @@ async function openFileAtPath(filePath) {
     mainWindow.webContents.send('file-opened', content);
     console.log('[debug] file-opened event sent');
     rebuildApplicationMenu();
+}
+function showAboutDialog() {
+    aboutWin = new electron_1.BrowserWindow({
+        width: 420,
+        height: 360,
+        resizable: false,
+        icon: path.join(__dirname, '../assets/icon.png'),
+        parent: mainWindow,
+        modal: true,
+        webPreferences: {
+            preload: path.join(__dirname, '../src/about-preload.js'),
+            nodeIntegration: false,
+            contextIsolation: true
+        }
+    });
+    aboutWin.setMenuBarVisibility(false);
+    aboutWin.loadFile(path.join(__dirname, '../about.html'));
+    aboutWin.on('closed', () => {
+        aboutWin = undefined;
+    });
 }
 async function handleOpen() {
     if (!mainWindow)
@@ -297,6 +332,11 @@ async function handleSaveCsv(_event, content, isSaveAs) {
 electron_1.app.whenReady().then(() => {
     settings = loadSettings();
     electron_1.ipcMain.handle('save-csv', handleSaveCsv);
+    electron_1.ipcMain.on('close-about', () => {
+        if (aboutWin && !aboutWin.isDestroyed()) {
+            aboutWin.close();
+        }
+    });
     createWindow();
 });
 electron_1.app.on('window-all-closed', () => {

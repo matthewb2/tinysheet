@@ -25,7 +25,9 @@ function waitForDevServer(url: string, timeoutMs = 30000): Promise<void> {
   })
 }
 
-let mainWindow: BrowserWindow | null = null
+let mainWindow: BrowserWindow | undefined = undefined
+let aboutWin: BrowserWindow | undefined = undefined
+
 
 interface Settings {
   lastFolder: string | null
@@ -122,6 +124,17 @@ function buildMenuTemplate(): Electron.MenuItemConstructorOptions[] {
         },
       ],
     },
+    {
+      label: '도움말(&H)',
+      submenu: [
+        {
+          label: '정보(&I)',
+          click: () => {
+            showAboutDialog();
+          }
+        }
+      ]
+    }
   ]
 }
 
@@ -159,6 +172,10 @@ function createWindow() {
     setWindowTitle()
   })
   setWindowTitle()
+
+  mainWindow.on('closed', () => {
+    mainWindow = undefined
+  })
 
   // 개발 모드 여부 확인 후 웹팩 개발 서버 또는 빌드 파일 로드
   const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
@@ -209,6 +226,27 @@ async function openFileAtPath(filePath: string) {
   mainWindow.webContents.send('file-opened', content)
   console.log('[debug] file-opened event sent')
   rebuildApplicationMenu()
+}
+
+function showAboutDialog() {
+  aboutWin = new BrowserWindow({
+    width: 420,
+    height: 360,
+    resizable: false,
+    icon: path.join(__dirname, '../assets/icon.png'),
+    parent: mainWindow,
+    modal: true,
+    webPreferences: {      
+      preload: path.join(__dirname, '../src/about-preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+  aboutWin.setMenuBarVisibility(false);
+  aboutWin.loadFile(path.join(__dirname, '../about.html'));
+  aboutWin.on('closed', () => {
+    aboutWin = undefined;
+  });
 }
 
 async function handleOpen() {
@@ -296,6 +334,11 @@ async function handleSaveCsv(
 app.whenReady().then(() => {
   settings = loadSettings()
   ipcMain.handle('save-csv', handleSaveCsv)
+  ipcMain.on('close-about', () => {
+    if (aboutWin && !aboutWin.isDestroyed()) {
+      aboutWin.close()
+    }
+  })
   createWindow()
 })
 

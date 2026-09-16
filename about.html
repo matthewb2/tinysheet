@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>정보</title>
+
+<style>
+    body {
+      margin: 0;
+      padding: 40px 30px 50px; /* 하단 패딩을 버튼 공간만큼 여유를 줍니다 */
+      text-align: center;
+      font-family: 'Malgun Gothic', 'Segoe UI', sans-serif;
+      background: #ffffff;
+      position: relative; /* absolute 버튼의 기준 위치 설정 */
+      min-height: 100vh;  /* 최소 높이를 화면 전체로 설정 */
+      box-sizing: border-box;
+    }
+    img {
+      width: 180px;
+      height: 180px;
+      display: block;
+      margin: 0 auto 20px;
+    }
+    .title {
+      font-size: 22px;
+      font-weight: bold;
+      color: #222;
+      margin: 0 0 10px;
+    }
+    .info {
+      font-size: 14px;
+      color: #555;
+      line-height: 1.8;
+      margin: 0;
+    }
+    .close-btn {
+      position: absolute;
+      right: 16px;
+      bottom: 16px;
+      padding: 6px 24px;
+      font-size: 14px;
+      font-family: inherit;
+      color: #fff;
+      background: #4a6cf7;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .close-btn:hover {
+      background: #3a5ae0;
+    }
+  </style>
+  
+</head>
+<body>
+  <img src="./assets/icon.png" alt="이지시트 로고">
+  <p class="title">타이니시트</p>
+  <p class="info">2026 copyright 엠케이솔루션 제공</p>
+  <button class="close-btn" id="close-btn">닫기</button>
+  <script>
+    document.getElementById('close-btn').addEventListener('click', () => {
+      window.aboutAPI.close();
+    });
+  </script>
+</body>
+</html>

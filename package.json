@@ -20,6 +20,8 @@
       "dist/**/*",
       "electron/**/*",
       "src/preload.js",
+      "src/about-preload.js",
+      "about.html",
       "assets/**/*",
       "package.json"
     ],
