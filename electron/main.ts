@@ -29,9 +29,11 @@ let mainWindow: BrowserWindow | null = null
 
 interface Settings {
   lastFolder: string | null
+  recentFiles: string[]
 }
 
-const DEFAULT_SETTINGS: Settings = { lastFolder: null }
+const DEFAULT_SETTINGS: Settings = { lastFolder: null, recentFiles: [] }
+const MAX_RECENT_FILES = 5
 
 function getSettingsPath(): string {
   return path.join(app.getPath('userData'), 'settings.json')
@@ -61,6 +63,81 @@ let currentFilePath: string | null = null
 function setWindowTitle() {
   if (mainWindow) {
     mainWindow.setTitle(currentFilePath ? '타이니시트 - ' + path.basename(currentFilePath) : '타이니시트')
+  }
+}
+
+function addRecentFile(filePath: string) {
+  settings.recentFiles = [
+    filePath,
+    ...settings.recentFiles.filter((p) => p !== filePath),
+  ].slice(0, MAX_RECENT_FILES)
+  saveSettings(settings)
+}
+
+function getRecentMenu(): Electron.MenuItemConstructorOptions {
+  if (settings.recentFiles.length === 0) {
+    return {
+      label: '최근 문서',
+      submenu: [{ label: '(없음)', enabled: false }],
+    }
+  }
+  return {
+    label: '최근 문서',
+    submenu: settings.recentFiles.map((filePath) => ({
+      label: path.basename(filePath),
+      sublabel: path.dirname(filePath),
+      toolTip: filePath,
+      click: () => openFileAtPath(filePath),
+    })),
+  }
+}
+
+function buildMenuTemplate(): Electron.MenuItemConstructorOptions[] {
+  return [
+    {
+      label: '파일(&F)',
+      submenu: [
+        {
+          label: '열기(&O)',
+          accelerator: 'CmdOrCtrl+O',
+          click: handleOpen,
+        },
+        {
+          label: '저장(&S)',
+          accelerator: 'CmdOrCtrl+S',
+          click: handleSave,
+        },
+        {
+          label: '다른 이름으로 저장(&A)',
+          accelerator: 'CmdOrCtrl+Shift+S',
+          click: handleSaveAs,
+        },
+        { type: 'separator' },
+        getRecentMenu(),
+        { type: 'separator' },
+        {
+          label: '종료(&X)',
+          accelerator: 'Alt+F4',
+          click: () => app.quit(),
+        },
+      ],
+    },
+  ]
+}
+
+function rebuildApplicationMenu() {
+  const menu = Menu.buildFromTemplate(buildMenuTemplate())
+  Menu.setApplicationMenu(menu)
+  if (process.env.TINY_MENU_DEBUG) {
+    const firstMenu = menu.items[0]
+    const dump = (firstMenu && firstMenu.submenu ? firstMenu.submenu.items : []).map((i) =>
+      i.type === 'separator'
+        ? '---'
+        : i.type === 'submenu' && i.submenu
+          ? i.label + '[' + i.submenu.items.map((s) => s.label).join('|') + ']'
+          : i.label
+    )
+    console.log('[menu-debug] ' + JSON.stringify(dump))
   }
 }
 
@@ -95,43 +172,43 @@ function createWindow() {
           }
         })
         mainWindow.loadURL(DEV_SERVER_URL)
+        process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
       }
     })
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+    process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
   }
 
-  const menuTemplate: Electron.MenuItemConstructorOptions[] = [
-    {
-      label: '파일(&F)',      
-      submenu: [
-        {
-          label: '열기(&O)',
-          accelerator: 'CmdOrCtrl+O',
-          click: handleOpen,
-        },
-        {
-          label: '저장(&S)',
-          accelerator: 'CmdOrCtrl+S',
-          click: handleSave,
-        },
-        {
-          label: '다른 이름으로 저장(&A)',
-          accelerator: 'CmdOrCtrl+Shift+S',
-          click: handleSaveAs,
-        },
-        { type: 'separator' },
-        {
-          label: '종료(&X)',
-          accelerator: 'Alt+F4',
-          click: () => app.quit(),
-        },
-      ],
-    },
-  ]
+  rebuildApplicationMenu()
+}
 
-  const menu = Menu.buildFromTemplate(menuTemplate)
-  Menu.setApplicationMenu(menu)
+async function openFileAtPath(filePath: string) {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+
+  if (!fs.existsSync(filePath)) {
+    settings.recentFiles = settings.recentFiles.filter((p) => p !== filePath)
+    saveSettings(settings)
+    rebuildApplicationMenu()
+    await dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      title: '타이니시트',
+      message: '파일을 찾을 수 없습니다.',
+      detail: filePath,
+    })
+    return
+  }
+
+  settings.lastFolder = path.dirname(filePath)
+  addRecentFile(filePath)
+  currentFilePath = filePath
+  setWindowTitle()
+
+  const content = fs.readFileSync(filePath, 'utf-8')
+  console.log('[debug] file content length:', content.length)
+  mainWindow.webContents.send('file-opened', content)
+  console.log('[debug] file-opened event sent')
+  rebuildApplicationMenu()
 }
 
 async function handleOpen() {
@@ -151,15 +228,7 @@ async function handleOpen() {
 
   const filePath = result.filePaths[0]
   console.log('[debug] file chosen:', filePath)
-  settings.lastFolder = path.dirname(filePath)
-  saveSettings(settings)
-  currentFilePath = filePath
-  setWindowTitle()
-
-  const content = fs.readFileSync(filePath, 'utf-8')
-  console.log('[debug] file content length:', content.length)
-  mainWindow.webContents.send('file-opened', content)
-  console.log('[debug] file-opened event sent')
+  await openFileAtPath(filePath)
 }
 
 async function handleSave() {
@@ -185,6 +254,8 @@ async function handleSaveCsv(
     try {
       fs.writeFileSync(currentFilePath, content, 'utf-8')
       console.log('[debug] csv saved (direct):', currentFilePath)
+      addRecentFile(currentFilePath)
+      rebuildApplicationMenu()
       return true
     } catch (err) {
       console.error('직접 저장 실패 - 대화상자로 전환:', err)
@@ -215,7 +286,9 @@ async function handleSaveCsv(
   currentFilePath = result.filePath
   settings.lastFolder = path.dirname(result.filePath)
   saveSettings(settings)
+  addRecentFile(result.filePath)
   setWindowTitle()
+  rebuildApplicationMenu()
   console.log('[debug] csv saved:', result.filePath)
   return true
 }
