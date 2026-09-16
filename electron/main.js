@@ -239,7 +239,7 @@ async function openFileAtPath(filePath) {
 function showAboutDialog() {
     aboutWin = new electron_1.BrowserWindow({
         width: 420,
-        height: 360,
+        height: 400,
         resizable: false,
         icon: path.join(__dirname, '../assets/icon.png'),
         parent: mainWindow,

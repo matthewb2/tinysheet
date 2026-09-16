@@ -7,13 +7,17 @@
 <style>
     body {
       margin: 0;
-      padding: 40px 30px 50px; /* 하단 패딩을 버튼 공간만큼 여유를 줍니다 */
-      text-align: center;
+      padding: 40px 30px 24px;
       font-family: 'Malgun Gothic', 'Segoe UI', sans-serif;
-      background: #ffffff;
-      position: relative; /* absolute 버튼의 기준 위치 설정 */
+      background: #eeeeee;
       height: 100vh;
+      overflow: hidden;
       box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between; /* 상단 콘텐츠와 하단 버튼을 위아래로 분리 */
+      align-items: center;
+      text-align: center;
     }
     img {
       width: 180px;
@@ -33,10 +37,13 @@
       line-height: 1.8;
       margin: 0;
     }
+    .button-container {
+      width: 100%;
+      padding: 10px;
+      display: flex;
+      justify-content: flex-end; /* 버튼을 오른쪽 끝으로 정렬 */
+    }
     .close-btn {
-      position: absolute;
-      right: 16px;
-      bottom: 16px;
       padding: 6px 24px;
       font-size: 14px;
       font-family: inherit;
@@ -53,10 +60,14 @@
   
 </head>
 <body>
-  <img src="./assets/icon.png" alt="이지시트 로고">
-  <p class="title">타이니시트</p>
-  <p class="info">2026 copyright 엠케이솔루션 제공</p>
-  <button class="close-btn" id="close-btn">닫기</button>
+  <div>
+    <img src="./assets/icon.png" alt="이지시트 로고">
+    <p class="title">타이니시트</p>
+    <p class="info">2026 copyright 엠케이솔루션 제공</p>
+  </div>
+  <div class="button-container">
+    <button class="close-btn" id="close-btn">닫기</button>
+  </div>
   <script>
     document.getElementById('close-btn').addEventListener('click', () => {
       window.aboutAPI.close();

@@ -231,7 +231,7 @@ async function openFileAtPath(filePath: string) {
 function showAboutDialog() {
   aboutWin = new BrowserWindow({
     width: 420,
-    height: 360,
+    height: 400,
     resizable: false,
     icon: path.join(__dirname, '../assets/icon.png'),
     parent: mainWindow,
