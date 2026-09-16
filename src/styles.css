@@ -142,6 +142,11 @@ body, html {
   background: #eef6ff;  
 }
 
+.cell-input:not([data-editing='1']) {
+  caret-color: transparent;
+  user-select: none;
+}
+
 /* 드래그 했을 때 나오는 셀의 투명한 배경색 */
 .cell-selected {
   background-color: rgba(204, 228, 255, 0.35) !important;
