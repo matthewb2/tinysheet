@@ -31,4 +31,8 @@ module.exports = {
       inject: true, // 번들된 JS 파일을 HTML에 자동으로 주입
     }),
   ],
+  performance: {
+    hints: false, // 4.89 MiB 번들 크기 경고 숨기기
+  },
+  ignoreWarnings: [/Failed to parse source map/],
 }

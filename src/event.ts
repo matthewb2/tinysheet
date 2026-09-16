@@ -248,10 +248,12 @@ export function attachAllCellEvents() {
         Math.min(input.value.length, Math.round(ratio * input.value.length))
       )
       input.setSelectionRange(index, index)
+      input.dataset.editing = '1'
     })
 
     input.addEventListener('focus', () => {
       input.value = getCellRaw(r, c)
+      input.dataset.editing = '0'
       updateFormulaBar(r, c)
       const sel = normalizeSelection()
       const inRange = sel && r >= sel.r1 && r <= sel.r2 && c >= sel.c1 && c <= sel.c2
@@ -287,6 +289,8 @@ export function attachAllCellEvents() {
     })
 
     input.addEventListener('keydown', (e) => {
+      const editing = input.dataset.editing === '1'
+
       if (e.key === 'Enter') {
         e.preventDefault()
         input.blur()
@@ -305,9 +309,28 @@ export function attachAllCellEvents() {
         return
       }
 
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        const hasFormula = hf.doesCellHaveFormula({ sheet: sheetId, row: r, col: c })
+        const currentValue = getCellValue(r, c)
+        input.value = hasFormula ? getCellRaw(r, c) : (currentValue === null ? '' : String(currentValue))
+        input.dataset.editing = '0'
+        input.blur()
+        focusCell(r, c)
+        return
+      }
+
+      if (!editing && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault()
+        input.value = e.key
+        input.dataset.editing = '1'
+        input.setSelectionRange(1, 1)
+        return
+      }
+
       if (e.key === 'ArrowDown') {
         const pos = input.selectionStart ?? input.value.length
-        if (pos === input.value.length || input.selectionStart === input.selectionEnd) {
+        if (!editing || (pos === input.value.length && input.selectionStart === input.selectionEnd)) {
           e.preventDefault()
           input.blur()
           focusCell(r + 1, c)
@@ -316,7 +339,7 @@ export function attachAllCellEvents() {
 
       if (e.key === 'ArrowUp') {
         const pos = input.selectionStart ?? 0
-        if (pos === 0 || input.selectionStart === input.selectionEnd) {
+        if (!editing || (pos === 0 && input.selectionStart === input.selectionEnd)) {
           e.preventDefault()
           input.blur()
           focusCell(r - 1, c)
@@ -325,7 +348,7 @@ export function attachAllCellEvents() {
 
       if (e.key === 'ArrowRight') {
         const pos = input.selectionStart ?? input.value.length
-        if (pos === input.value.length && input.selectionStart === input.selectionEnd) {
+        if (!editing || (pos === input.value.length && input.selectionStart === input.selectionEnd)) {
           e.preventDefault()
           input.blur()
           focusCell(r, c + 1)
@@ -334,7 +357,7 @@ export function attachAllCellEvents() {
 
       if (e.key === 'ArrowLeft') {
         const pos = input.selectionStart ?? 0
-        if (pos === 0 && input.selectionStart === input.selectionEnd) {
+        if (!editing || (pos === 0 && input.selectionStart === input.selectionEnd)) {
           e.preventDefault()
           input.blur()
           focusCell(r, c - 1)
