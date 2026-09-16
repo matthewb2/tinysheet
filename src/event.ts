@@ -217,6 +217,7 @@ export function attachAllCellEvents() {
       setSelection({ row: r, col: c }, { row: r, col: c })
       applySelection()
       applyHeaderHighlights()
+      input.focus()
     })
 
     input.addEventListener('mouseup', (e) => {
@@ -235,7 +236,6 @@ export function attachAllCellEvents() {
 
     input.addEventListener('dblclick', (e) => {
       if (e.button !== 0) return
-      if (document.activeElement === input) return
       setSelection({ row: r, col: c }, { row: r, col: c })
       applySelection()
       applyHeaderHighlights()
