@@ -82,6 +82,20 @@ body, html {
   display: none;
 }
 
+.fill-handle {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  background: #1a73e8;
+  border: 2px solid #fff;
+  box-sizing: border-box;
+  cursor: crosshair;
+  pointer-events: auto;
+  display: none;
+}
+
 .spreadsheet-table {
   border-collapse: separate;
   border-spacing: 0;

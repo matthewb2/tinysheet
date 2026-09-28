@@ -4,6 +4,7 @@ import {
   createContextMenu,
   attachAllCellEvents,
   setupDocumentEvents,
+  setupFillHandle,
   setupFormulaBar,
   registerFileOpen,
   registerSaveHandler,
@@ -14,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderGrid()
   attachAllCellEvents()
   setupDocumentEvents()
+  setupFillHandle()
   setupFormulaBar()
   registerFileOpen()
   registerSaveHandler()

@@ -110,6 +110,9 @@ export function applySelection() {
       lastTd.offsetTop + lastTd.offsetHeight - firstTd.offsetTop + 'px'
     overlay.style.display = 'block'
   }
+
+  const handle = overlay.querySelector('.fill-handle') as HTMLElement | null
+  if (handle) handle.style.display = isDragging ? 'none' : 'block'
 }
 
 export function applyHeaderHighlights() {

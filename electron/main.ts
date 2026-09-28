@@ -5,24 +5,47 @@ import * as http from 'http'
 
 const DEV_SERVER_URL = 'http://localhost:8080'
 
-function waitForDevServer(url: string, timeoutMs = 30000): Promise<void> {
+function waitForDevServer(url: string): Promise<boolean> {
   return new Promise((resolve) => {
-    const deadline = Date.now() + timeoutMs
+    let connected = false
     const attempt = () => {
       const req = http.get(url, (res) => {
         res.resume()
-        resolve()
+        connected = true
+        resolve(connected)
       })
       req.on('error', () => {
-        if (Date.now() >= deadline) {
-          resolve()
+        if (connected) {
+          resolve(connected)
         } else {
-          setTimeout(attempt, 500)
+          setTimeout(attempt, 1000)
         }
+      })
+      req.setTimeout(3000, () => {
+        req.destroy()
+        setTimeout(attempt, 1000)
       })
     }
     attempt()
   })
+}
+
+async function loadDevServer(win: BrowserWindow, url: string) {
+  const connected = await waitForDevServer(url)
+  if (!connected) {
+    console.warn('[dev] 웹팩 개발 서버 미기동 - 그래도 로드 시도')
+  }
+
+  // 로드 실패(ERR_CONNECTION_REFUSED 등) 시 최대 60회 재시도
+  for (let attempt = 0; attempt < 60; attempt++) {
+    try {
+      await win.webContents.loadURL(url)
+      return
+    } catch (err) {
+      console.warn(`[dev] loadURL 실패(${attempt + 1}회): ${(err as Error).message}`)
+      await new Promise((r) => setTimeout(r, 1000))
+    }
+  }
 }
 
 let mainWindow: BrowserWindow | undefined = undefined
@@ -181,17 +204,15 @@ function createWindow() {
   const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 
   if (isDev) {
-    waitForDevServer(DEV_SERVER_URL).then(() => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.once('did-finish-load', () => {
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.openDevTools() // 본문 시트 로드 완료 후 개발자 도구 오픈
-          }
-        })
-        mainWindow.loadURL(DEV_SERVER_URL)
-        process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
-      }
-    })
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.once('did-finish-load', () => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.openDevTools() // 본문 시트 로드 완료 후 개발자 도구 오픈
+        }
+      })
+      loadDevServer(mainWindow, DEV_SERVER_URL)
+      process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true'
+    }
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
     process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';

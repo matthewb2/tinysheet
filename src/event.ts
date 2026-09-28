@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify'
 import { ROWS, COLS, hf, sheetId, dbg, getCellRaw, getCellValue, setCellValue, getRecordedRaw, shiftRows, shiftCols } from './init'
 import {
   type CellPos,
@@ -17,6 +18,105 @@ let contextMenuRow = 0
 let contextMenuCol = 0
 let activeCellRow = 0
 let activeCellCol = 0
+
+let isFilling = false
+let fillStart: { r1: number; c1: number; r2: number; c2: number } | null = null
+let fillPreview: CellPos | null = null
+
+function clampCell(row: number, col: number): CellPos {
+  return {
+    row: Math.max(0, Math.min(row, ROWS - 1)),
+    col: Math.max(0, Math.min(col, COLS - 1)),
+  }
+}
+
+function cellAtPoint(clientX: number, clientY: number): CellPos | null {
+  const table = document.getElementById('spreadsheet') as HTMLTableElement
+  if (!table) return null
+  const anchorTd = table.querySelector(
+    '.cell-input[data-row="0"][data-col="0"]'
+  )?.parentElement as HTMLElement | null
+  if (!anchorTd) return null
+  const rect = anchorTd.getBoundingClientRect()
+  if (rect.height <= 0 || rect.width <= 0) return null
+  const row = Math.floor((clientY - rect.top) / rect.height)
+  const col = Math.floor((clientX - rect.left) / rect.width)
+  return clampCell(row, col)
+}
+
+function fillPreviewTo(row: number, col: number) {
+  if (!fillStart) return
+  const r3 = Math.max(fillStart.r2, row)
+  const c3 = Math.max(fillStart.c2, col)
+  setSelection({ row: fillStart.r1, col: fillStart.c1 }, { row: r3, col: c3 })
+  applySelection()
+  applyHeaderHighlights()
+}
+
+function performFill(row: number, col: number) {
+  if (!fillStart) return
+  const src = fillStart
+  const r3 = Math.max(src.r2, row)
+  const c3 = Math.max(src.c2, col)
+  if (r3 === src.r2 && c3 === src.c2) return
+  const rowSpan = src.r2 - src.r1 + 1
+  const colSpan = src.c2 - src.c1 + 1
+
+  for (let r = src.r1; r <= r3; r++) {
+    for (let c = src.c1; c <= c3; c++) {
+      if (r >= src.r1 && r <= src.r2 && c >= src.c1 && c <= src.c2) continue
+      let sourceRow: number
+      let sourceCol: number
+      if (r >= src.r1 && r <= src.r2) {
+        sourceRow = r
+        sourceCol = src.c1 + ((c - (src.c2 + 1)) % colSpan)
+      } else {
+        sourceRow = src.r1 + ((r - (src.r2 + 1)) % rowSpan)
+        if (c >= src.c1 && c <= src.c2) {
+          sourceCol = c
+        } else {
+          sourceCol = src.c1 + ((c - (src.c2 + 1)) % colSpan)
+        }
+      }
+      setCellValue(r, c, getCellRaw(sourceRow, sourceCol))
+    }
+  }
+  refreshDisplay()
+}
+
+export function setupFillHandle() {
+  const handle = document.querySelector('.fill-handle') as HTMLElement | null
+  if (!handle) return
+
+  handle.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return
+    const sel = normalizeSelection()
+    if (!sel) return
+    e.preventDefault()
+    e.stopPropagation()
+    fillStart = sel
+    isFilling = true
+    fillPreview = null
+  })
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isFilling || !fillStart) return
+    const pos = cellAtPoint(e.clientX, e.clientY)
+    if (!pos) return
+    fillPreview = pos
+    fillPreviewTo(pos.row, pos.col)
+  })
+
+  document.addEventListener('mouseup', () => {
+    if (!isFilling || !fillStart) return
+    if (fillPreview) {
+      performFill(fillPreview.row, fillPreview.col)
+    }
+    isFilling = false
+    fillStart = null
+    fillPreview = null
+  })
+}
 
 function updateFormulaBar(row: number, col: number) {
   activeCellRow = row
@@ -126,7 +226,9 @@ export function createContextMenu() {
   cellMenu.className = 'context-menu'
   cellMenu.id = 'cell-context-menu'
   cellMenu.style.display = 'none'
-  cellMenu.innerHTML = `
+    // DOMPurify를 사용해 문자열을 정화한 뒤 innerHTML에 삽입
+  // 정화되지 않은 문자열을 직접 삽입하면 XSS 위험이 존재한다.
+  const menuHtml = `
     <div class="context-menu-item" data-action="cut">잘라내기<span class="shortcut">Ctrl+X</span></div>
     <div class="context-menu-item" data-action="copy">복사<span class="shortcut">Ctrl+C</span></div>
     <div class="context-menu-item" data-action="paste">붙여넣기<span class="shortcut">Ctrl+V</span></div>
@@ -148,8 +250,9 @@ export function createContextMenu() {
         <div class="context-menu-item" data-action="deleteCol">열 삭제</div>
       </div>
     </div>
-  `
-  document.body.appendChild(cellMenu)
+  `;
+  cellMenu.innerHTML = DOMPurify.sanitize(menuHtml);
+  document.body.appendChild(cellMenu);
 
   const rowMenu = document.createElement('div')
   rowMenu.className = 'context-menu'
@@ -224,6 +327,8 @@ export function attachAllCellEvents() {
       if (e.button !== 0) return
       if (!getSelection().isDragging) return
       setDragging(false)
+      applySelection()
+      applyHeaderHighlights()
     })
 
     input.addEventListener('mouseenter', () => {
@@ -413,6 +518,8 @@ export function setupDocumentEvents() {
   document.addEventListener('mouseup', () => {
     if (getSelection().isDragging) {
       setDragging(false)
+      applySelection()
+      applyHeaderHighlights()
     }
   })
 }
