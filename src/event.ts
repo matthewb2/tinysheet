@@ -280,6 +280,27 @@ export function createContextMenu() {
   menuClass(rowMenu)
 }
 
+function clearSelectedCells() {
+  const sel = normalizeSelection()
+  if (!sel) return false
+
+  for (let r = sel.r1; r <= sel.r2; r++) {
+    for (let c = sel.c1; c <= sel.c2; c++) {
+      setCellValue(r, c, '')
+    }
+  }
+  refreshDisplay()
+
+  // 선택 범위에 현재 활성 셀이 포함되면 수식창도 비운다.
+  if (
+    activeCellRow >= sel.r1 && activeCellRow <= sel.r2 &&
+    activeCellCol >= sel.c1 && activeCellCol <= sel.c2
+  ) {
+    updateFormulaBar(activeCellRow, activeCellCol)
+  }
+  return true
+}
+
 export function attachAllCellEvents() {
   const table = document.getElementById('spreadsheet') as HTMLTableElement
   if (!table) return
@@ -522,6 +543,23 @@ export function setupDocumentEvents() {
       applyHeaderHighlights()
     }
   })
+
+  // 선택된 셀(또는 셀 범위)의 내용을 지운다. 더블클릭 입력모드나
+  // 수식창 등 텍스트 입력 중에는 브라우저 기본 삭제 동작에 맡긴다.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Delete' && e.key !== 'Backspace') return
+    if (e.ctrlKey || e.metaKey || e.altKey) return
+
+    const active = document.activeElement as HTMLElement | null
+    if (active && active.classList.contains('cell-input')) {
+      if (active.dataset.editing === '1') return
+    } else if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+      return
+    }
+
+    if (!clearSelectedCells()) return
+    e.preventDefault()
+  })
 }
 
 export function setupFormulaBar() {
@@ -556,29 +594,15 @@ export function setupFormulaBar() {
   formulaInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault()
-      const table = document.getElementById('spreadsheet') as HTMLTableElement
-      if (!table) return
-      const cellInput = table.querySelector(
-        `.cell-input[data-row="${activeCellRow}"][data-col="${activeCellCol}"]`
-      ) as HTMLInputElement | null
-      if (cellInput) {
-        cellInput.value = formulaInput.value
-        cellInput.blur()
-      }
+      setCellValue(activeCellRow, activeCellCol, formulaInput.value)
+      refreshDisplay()
       focusCell(activeCellRow + 1, activeCellCol)
     }
 
     if (e.key === 'Tab') {
       e.preventDefault()
-      const table = document.getElementById('spreadsheet') as HTMLTableElement
-      if (!table) return
-      const cellInput = table.querySelector(
-        `.cell-input[data-row="${activeCellRow}"][data-col="${activeCellCol}"]`
-      ) as HTMLInputElement | null
-      if (cellInput) {
-        cellInput.value = formulaInput.value
-        cellInput.blur()
-      }
+      setCellValue(activeCellRow, activeCellCol, formulaInput.value)
+      refreshDisplay()
       if (e.shiftKey) {
         focusCell(activeCellRow, activeCellCol - 1)
       } else {

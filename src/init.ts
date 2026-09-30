@@ -24,6 +24,8 @@ const probeSheetId = probe.getSheetId(probe.addSheet('Probe'))!
 // HyperFormula가 두 자리 연도 형식(yy.mm.dd 등)을 날짜로 해석해
 // 시리얼 숫자로 바꾸는 것을 방지하기 위해, 날짜로 해석되는 입력은 문자열로 저장한다.
 function isParsedAsDate(value: string): boolean {
+  // 수식은 계산 결과가 날짜여도 문자 앞에 접두사(')를 붙이면 안 된다.
+  if (value.startsWith('=')) return false
   try {
     probe.setCellContents({ sheet: probeSheetId, row: 0, col: 0 }, [[value]])
     return probe.getCellValueDetailedType({ sheet: probeSheetId, row: 0, col: 0 }) === 'NUMBER_DATE'
