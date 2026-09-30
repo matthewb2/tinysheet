@@ -301,6 +301,18 @@ function clearSelectedCells() {
   return true
 }
 
+// Shift+화살표: 앵커(기준 셀)는 그대로 두고 선택 영역의 끝점만 이동한다.
+function extendSelectionWithShift(row: number, col: number, dRow: number, dCol: number) {
+  const sel = getSelection()
+  const anchor = sel.anchor ?? { row, col }
+  const end = sel.end ?? { row, col }
+  const next = clampCell(end.row + dRow, end.col + dCol)
+  if (next.row === end.row && next.col === end.col) return
+  setSelection(anchor, next)
+  applySelection()
+  applyHeaderHighlights()
+}
+
 export function attachAllCellEvents() {
   const table = document.getElementById('spreadsheet') as HTMLTableElement
   if (!table) return
@@ -452,6 +464,16 @@ export function attachAllCellEvents() {
         input.dataset.editing = '1'
         input.setSelectionRange(1, 1)
         return
+      }
+
+      if (e.shiftKey && !editing) {
+        const dRow = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0
+        const dCol = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
+        if (dRow !== 0 || dCol !== 0) {
+          e.preventDefault()
+          extendSelectionWithShift(r, c, dRow, dCol)
+          return
+        }
       }
 
       if (e.key === 'ArrowDown') {
