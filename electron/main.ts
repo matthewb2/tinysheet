@@ -40,12 +40,51 @@ async function loadDevServer(win: BrowserWindow, url: string) {
   for (let attempt = 0; attempt < 60; attempt++) {
     try {
       await win.webContents.loadURL(url)
-      return
+      return true
     } catch (err) {
       console.warn(`[dev] loadURL 실패(${attempt + 1}회): ${(err as Error).message}`)
       await new Promise((r) => setTimeout(r, 1000))
     }
   }
+  return false
+}
+
+// 본문이 뜨기 전(개발 서버 대기·번들 초기화)에는 창이 비어 보이므로 스피너를 띄운다.
+// 배포 파일 목록에 추가하지 않아도 되도록 data URL 로 그린다.
+function loadingScreenHtml(message: string, isError: boolean): string {
+  return `<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>타이니시트</title>
+<style>
+  html, body { height: 100%; margin: 0; background: #fff; }
+  .loading {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 16px;
+    font-family: "Malgun Gothic", "맑은 고딕", sans-serif; color: #555;
+  }
+  .spinner {
+    width: 34px; height: 34px; border: 3px solid #e4e4e4; border-top-color: #4a90d9;
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  .spinner.is-error { animation: none; border-top-color: #d9534f; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .message { font-size: 13px; }
+</style>
+</head>
+<body>
+  <div class="loading">
+    <div class="spinner${isError ? ' is-error' : ''}"></div>
+    <div class="message">${message}</div>
+  </div>
+</body>
+</html>`
+}
+
+function showLoadingScreen(win: BrowserWindow, message: string, isError = false): Promise<void> {
+  const html = loadingScreenHtml(message, isError)
+  return win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
 }
 
 let mainWindow: BrowserWindow | undefined = undefined
@@ -146,12 +185,48 @@ function buildMenuTemplate(): Electron.MenuItemConstructorOptions[] {
           click: () => app.quit(),
         },
       ],
-    },
+    },    
+    {
+      label: '편집(&E)',
+      submenu: [
+        {
+          label: '실행취소(&U)',
+		  accelerator: 'CmdOrCtrl+Z',
+          click: () => {
+            //showAboutDialog();
+          }
+        },         
+        {
+          label: '잘라내기(&I)',
+          accelerator: 'CmdOrCtrl+X',
+          click: () => {
+            //showAboutDialog();
+          }
+        }, 
+        
+        {
+          label: '복사(&C)',
+          accelerator: 'CmdOrCtrl+C',
+          click: () => {
+            //showAboutDialog();
+          }
+        }, 
+        
+        {
+          label: '붙여넣기(&P)',
+          accelerator: 'CmdOrCtrl+V',
+          click: () => {
+            //showAboutDialog();
+          }
+        }
+      ]
+    }, 
     {
       label: '도움말(&H)',
       submenu: [
         {
           label: '정보(&I)',
+		  accelerator: 'F1',
           click: () => {
             showAboutDialog();
           }
@@ -203,20 +278,29 @@ function createWindow() {
   // 개발 모드 여부 확인 후 웹팩 개발 서버 또는 빌드 파일 로드
   const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 
-  if (isDev) {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.once('did-finish-load', () => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.openDevTools() // 본문 시트 로드 완료 후 개발자 도구 오픈
+  const win = mainWindow
+  process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true'
+
+  // 본문이 뜨기 전에 스피너를 띄운다. 개발 서버 대기 중 창이 비어 보이지 않도록
+  // 스피너 로드가 끝난 뒤 본문을 로드한다.
+  showLoadingScreen(win, isDev ? '개발 서버에 연결하는 중...' : '시트를 불러오는 중...')
+    .then(async () => {
+      if (win.isDestroyed()) return
+
+      if (isDev) {
+        win.webContents.once('did-finish-load', () => {
+          if (!win.isDestroyed()) win.webContents.openDevTools() // 본문 시트 로드 완료 후 개발자 도구 오픈
+        })
+
+        const loaded = await loadDevServer(win, DEV_SERVER_URL)
+        if (!loaded && !win.isDestroyed()) {
+          await showLoadingScreen(win, '개발 서버에 연결하지 못했습니다. npm run dev:renderer 를 실행해 주세요.', true)
         }
-      })
-      loadDevServer(mainWindow, DEV_SERVER_URL)
-      process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true'
-    }
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
-    process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
-  }
+      } else {
+        await win.loadFile(path.join(__dirname, '../dist/index.html'))
+      }
+    })
+    .catch((err) => console.error('[load] 초기 로드 실패:', err))
 
   rebuildApplicationMenu()
 }
